@@ -10,12 +10,15 @@ from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Font, Alignment
 from fastapi.responses import FileResponse
+import os
 
 app = FastAPI(title="Mok Transport Internal Sales System")
 
 # static + templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 DB = "sales.db"
 VAT_RATE = 0.15
@@ -154,6 +157,18 @@ def get_sales():
     conn.close()
 
     return [list(row) for row in rows]
+
+@app.delete("/delete-sale/{sale_id}")
+def delete_sale(sale_id: int):
+    conn = sqlite3.connect(DB)
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM sales WHERE id=?", (sale_id,))
+    conn.commit()
+    conn.close()
+
+    return {"message": "Sale deleted successfully"}
+
 
 # ---------------- EXPORT EXCEL ----------------
 
