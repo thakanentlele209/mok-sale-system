@@ -9,18 +9,27 @@ from reportlab.pdfgen import canvas
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Font, Alignment
-from fastapi.responses import FileResponse
 import os
+import uvicorn
+
+# ---------------- PATH SAFETY ----------------
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB = os.path.join(BASE_DIR, "sales.db")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+print("BASE_DIR:", BASE_DIR)
+print("STATIC_DIR exists:", os.path.exists(STATIC_DIR))
+print("TEMPLATES_DIR exists:", os.path.exists(TEMPLATES_DIR))
+
+# ---------------- APP ----------------
 
 app = FastAPI(title="Mok Transport Internal Sales System")
 
-# static + templates
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
-
-DB = "sales.db"
 VAT_RATE = 0.15
 
 # ---------------- DATABASE ----------------
@@ -51,26 +60,13 @@ init_db()
 # ---------------- DATA ----------------
 
 PARTIES = [
-    "KONE",
-    "OTIS",
-    "ALICEWEAR",
-    "SPIRAX SARCO",
-    "TRACLO PTY LTD",
-    "TRACLO INTL",
-    "TRACLO INTER",
-    "MAXIONWHEEL",
-    "MINTEK",
-    "YMS TRADING DISTRIBUTORS",
-    "WALK-IN",
-    "WEG",
-    "SULZER",
-    "CUSTOMS",
-    "USAFETY",
-    "SILVER",
-    "MAXION "
+    "KONE","OTIS","ALICEWEAR","SPIRAX SARCO","TRACLO PTY LTD",
+    "TRACLO INTL","TRACLO INTER","MAXIONWHEEL","MINTEK",
+    "YMS TRADING DISTRIBUTORS","WALK-IN","WEG","SULZER",
+    "CUSTOMS","USAFETY","SILVER","MAXION"
 ]
 
-SUPPLIERS = ["DHL", "JKJ","MOK"]
+SUPPLIERS = ["DHL", "JKJ", "MOK"]
 
 # ---------------- MODEL ----------------
 
@@ -89,21 +85,13 @@ class Sale(BaseModel):
 def home(request: Request):
     return templates.TemplateResponse(
         "index.html",
-        {
-            "request": request,
-            "parties": PARTIES,
-            "suppliers": SUPPLIERS
-        }
+        {"request": request, "parties": PARTIES, "suppliers": SUPPLIERS}
     )
 
 # ---------------- RECORD SALE ----------------
-# VAT toggle is query param, not body param
 
 @app.post("/record-sale")
-def record_sale(
-    sale: Sale,
-    vat_enabled: bool = Query(True)
-):
+def record_sale(sale: Sale, vat_enabled: bool = Query(True)):
     vat = sale.client_charge * VAT_RATE if vat_enabled else 0
     total_invoice = sale.client_charge + vat
     profit = sale.client_charge - sale.supplier_cost
@@ -118,16 +106,9 @@ def record_sale(
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        sale.party,
-        sale.supplier,
-        sale.order_no,
-        sale.invoice_no,
-        sale.sale_date,
-        sale.supplier_cost,
-        sale.client_charge,
-        vat,
-        total_invoice,
-        profit
+        sale.party, sale.supplier, sale.order_no, sale.invoice_no,
+        sale.sale_date, sale.supplier_cost, sale.client_charge,
+        vat, total_invoice, profit
     ))
 
     conn.commit()
@@ -136,8 +117,7 @@ def record_sale(
     return JSONResponse({
         "vat": round(vat, 2),
         "total_invoice": round(total_invoice, 2),
-        "profit": round(profit, 2),
-        "message": "Sale recorded successfully"
+        "profit": round(profit, 2)
     })
 
 # ---------------- SALES LIST ----------------
@@ -155,27 +135,22 @@ def get_sales():
 
     rows = cursor.fetchall()
     conn.close()
-
     return [list(row) for row in rows]
 
 @app.delete("/delete-sale/{sale_id}")
 def delete_sale(sale_id: int):
     conn = sqlite3.connect(DB)
     cursor = conn.cursor()
-
     cursor.execute("DELETE FROM sales WHERE id=?", (sale_id,))
     conn.commit()
     conn.close()
-
-    return {"message": "Sale deleted successfully"}
-
+    return {"message": "Sale deleted"}
 
 # ---------------- EXPORT EXCEL ----------------
 
 @app.get("/export-excel")
 def export_excel():
-
-    conn = sqlite3.connect("sales.db")
+    conn = sqlite3.connect(DB)
     cur = conn.cursor()
     cur.execute("SELECT * FROM sales")
     rows = cur.fetchall()
@@ -183,9 +158,7 @@ def export_excel():
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Sales Report"
 
-    # ===== Company header =====
     ws.merge_cells("A1:H1")
     ws["A1"] = "MOK TRANSPORT"
     ws["A1"].font = Font(size=18, bold=True)
@@ -195,18 +168,15 @@ def export_excel():
     ws["A2"] = "12 JUPITER STELLER MALL, SHOP CO1 CROWN MINES, JOHANNESBURG, 2000"
     ws["A2"].alignment = Alignment(horizontal="center")
 
-    # ===== Logo =====
-    logo = XLImage("static/logo.png")
-    logo.width = 120
-    logo.height = 80
-    ws.add_image(logo, "I1")
+    logo_path = os.path.join(STATIC_DIR, "logo.png")
+    if os.path.exists(logo_path):
+        logo = XLImage(logo_path)
+        logo.width = 120
+        logo.height = 80
+        ws.add_image(logo, "I1")
 
-    # ===== Table header =====
-    headers = [
-        "ID","Party","Supplier","Order",
-        "Invoice","Date","Supplier Cost",
-        "Total Invoice","Profit"
-    ]
+    headers = ["ID","Party","Supplier","Order","Invoice","Date",
+               "Supplier Cost","Total Invoice","Profit"]
 
     ws.append([])
     ws.append(headers)
@@ -214,11 +184,10 @@ def export_excel():
     for col in ws[4]:
         col.font = Font(bold=True)
 
-    # ===== Data =====
     for row in rows:
         ws.append(row)
 
-    file_path = "sales_export.xlsx"
+    file_path = os.path.join(BASE_DIR, "sales_export.xlsx")
     wb.save(file_path)
 
     return FileResponse(file_path, filename="mok_sales.xlsx")
@@ -236,48 +205,33 @@ def invoice(sale_id: int):
     if not row:
         return {"error": "Sale not found"}
 
-    file_name = f"invoice_{sale_id}.pdf"
+    file_name = os.path.join(BASE_DIR, f"invoice_{sale_id}.pdf")
     c = canvas.Canvas(file_name)
 
     c.setFont("Helvetica-Bold", 16)
     c.drawString(100, 780, "Mok Transport Invoice")
 
     c.setFont("Helvetica", 12)
-    c.drawString(100, 740, f"Party: {row[1]}")
-    c.drawString(100, 720, f"Supplier: {row[2]}")
-    c.drawString(100, 700, f"Order No: {row[3]}")
-    c.drawString(100, 680, f"Invoice No: {row[4]}")
-    c.drawString(100, 660, f"Date: {row[5]}")
+    labels = [
+        f"Party: {row[1]}",
+        f"Supplier: {row[2]}",
+        f"Order No: {row[3]}",
+        f"Invoice No: {row[4]}",
+        f"Date: {row[5]}",
+        f"Supplier Cost: {row[6]}",
+        f"Client Charge: {row[7]}",
+        f"VAT: {round(row[8], 2)}",
+        f"Total Invoice: {round(row[9], 2)}",
+        f"Profit: {round(row[10], 2)}"
+    ]
 
-    c.drawString(100, 620, f"Supplier Cost: {row[6]}")
-    c.drawString(100, 600, f"Client Charge: {row[7]}")
-    c.drawString(100, 580, f"VAT: {round(row[8], 2)}")
-    c.drawString(100, 560, f"Total Invoice: {round(row[9], 2)}")
-
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(100, 520, f"Profit: {round(row[10], 2)}")
+    y = 740
+    for text in labels:
+        c.drawString(100, y, text)
+        y -= 20
 
     c.save()
-
-    return FileResponse(file_name, filename=file_name)
-
-# ---------------- DASHBOARD SUMMARY ----------------
-
-@app.get("/dashboard")
-def dashboard():
-    conn = sqlite3.connect(DB)
-    df = pd.read_sql_query("SELECT * FROM sales", conn)
-    conn.close()
-
-    if df.empty:
-        return {"total_sales": 0, "total_profit": 0, "by_party": {}, "by_supplier": {}}
-
-    return {
-        "total_sales": int(len(df)),
-        "total_profit": float(df["profit"].sum()),
-        "by_party": df.groupby("party")["profit"].sum().to_dict(),
-        "by_supplier": df.groupby("supplier")["profit"].sum().to_dict()
-    }
+    return FileResponse(file_name)
 
 # ---------------- MONTHLY DASHBOARD ----------------
 
@@ -292,7 +246,6 @@ def dashboard_monthly():
 
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
     df = df.dropna(subset=["sale_date"])
-
     df["month"] = df["sale_date"].dt.strftime("%Y-%m")
 
     monthly = df.groupby("month").agg({
@@ -302,4 +255,10 @@ def dashboard_monthly():
     }).reset_index()
 
     return monthly.to_dict(orient="records")
+
+# ---------------- STARTUP ----------------
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
 
