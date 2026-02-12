@@ -11,6 +11,8 @@ from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Font, Alignment
 import os
 import uvicorn
+import smtplib
+from email.message import EmailMessage
 
 # ---------------- PATH SAFETY ----------------
 
@@ -18,12 +20,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(BASE_DIR, "sales.db")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-
-print("BASE_DIR:", BASE_DIR)
-print("STATIC_DIR exists:", os.path.exists(STATIC_DIR))
-print("TEMPLATES_DIR exists:", os.path.exists(TEMPLATES_DIR))
-
-# ---------------- APP ----------------
 
 app = FastAPI(title="Mok Transport Internal Sales System")
 
@@ -37,21 +33,24 @@ VAT_RATE = 0.15
 def init_db():
     conn = sqlite3.connect(DB)
     cursor = conn.cursor()
+
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS sales (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         party TEXT,
         supplier TEXT,
-        order_no TEXT,
+        waybill TEXT,
         invoice_no TEXT,
         sale_date TEXT,
         supplier_cost REAL,
         client_charge REAL,
+        fuel_charge REAL,
         vat REAL,
         total_invoice REAL,
         profit REAL
     )
     """)
+
     conn.commit()
     conn.close()
 
@@ -63,7 +62,7 @@ PARTIES = [
     "KONE","OTIS","ALICEWEAR","SPIRAX SARCO","TRACLO PTY LTD",
     "TRACLO INTL","TRACLO INTER","MAXIONWHEEL","MINTEK",
     "YMS TRADING DISTRIBUTORS","WALK-IN","WEG","SULZER",
-    "CUSTOMS","USAFETY","SILVER","MAXION"
+    "CUSTOMS","USAFETY","SILVER","MAXION","Mahniglory and Saama PTY LTD"
 ]
 
 SUPPLIERS = ["DHL", "JKJ", "MOK"]
@@ -73,11 +72,12 @@ SUPPLIERS = ["DHL", "JKJ", "MOK"]
 class Sale(BaseModel):
     party: str
     supplier: str
-    order_no: str
+    waybill: str
     invoice_no: str
     sale_date: str
     supplier_cost: float
     client_charge: float
+    fuel_charge: float
 
 # ---------------- HOME ----------------
 
@@ -92,23 +92,26 @@ def home(request: Request):
 
 @app.post("/record-sale")
 def record_sale(sale: Sale, vat_enabled: bool = Query(True)):
-    vat = sale.client_charge * VAT_RATE if vat_enabled else 0
-    total_invoice = sale.client_charge + vat
-    profit = sale.client_charge - sale.supplier_cost
+
+    subtotal = sale.client_charge + sale.fuel_charge
+    vat = subtotal * VAT_RATE if vat_enabled else 0
+    total_invoice = subtotal + vat
+    profit = subtotal - sale.supplier_cost
 
     conn = sqlite3.connect(DB)
     cursor = conn.cursor()
 
     cursor.execute("""
         INSERT INTO sales (
-            party, supplier, order_no, invoice_no, sale_date,
-            supplier_cost, client_charge, vat, total_invoice, profit
+            party, supplier, waybill, invoice_no, sale_date,
+            supplier_cost, client_charge, fuel_charge,
+            vat, total_invoice, profit
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        sale.party, sale.supplier, sale.order_no, sale.invoice_no,
+        sale.party, sale.supplier, sale.waybill, sale.invoice_no,
         sale.sale_date, sale.supplier_cost, sale.client_charge,
-        vat, total_invoice, profit
+        sale.fuel_charge, vat, total_invoice, profit
     ))
 
     conn.commit()
@@ -128,8 +131,9 @@ def get_sales():
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT id, party, supplier, order_no, invoice_no,
-               sale_date, client_charge, total_invoice, profit
+        SELECT id, party, supplier, waybill, invoice_no,
+               sale_date, client_charge, fuel_charge,
+               total_invoice, profit
         FROM sales
     """)
 
@@ -150,6 +154,7 @@ def delete_sale(sale_id: int):
 
 @app.get("/export-excel")
 def export_excel():
+
     conn = sqlite3.connect(DB)
     cur = conn.cursor()
     cur.execute("SELECT * FROM sales")
@@ -159,24 +164,16 @@ def export_excel():
     wb = Workbook()
     ws = wb.active
 
-    ws.merge_cells("A1:H1")
+    ws.merge_cells("A1:J1")
     ws["A1"] = "MOK TRANSPORT"
     ws["A1"].font = Font(size=18, bold=True)
     ws["A1"].alignment = Alignment(horizontal="center")
 
-    ws.merge_cells("A2:H2")
-    ws["A2"] = "12 JUPITER STELLER MALL, SHOP CO1 CROWN MINES, JOHANNESBURG, 2000"
-    ws["A2"].alignment = Alignment(horizontal="center")
-
-    logo_path = os.path.join(STATIC_DIR, "logo.png")
-    if os.path.exists(logo_path):
-        logo = XLImage(logo_path)
-        logo.width = 120
-        logo.height = 80
-        ws.add_image(logo, "I1")
-
-    headers = ["ID","Party","Supplier","Order","Invoice","Date",
-               "Supplier Cost","Total Invoice","Profit"]
+    headers = [
+        "ID","Party","Supplier","Waybill","Invoice",
+        "Date","Supplier Cost","Client Charge",
+        "Fuel Charge","Total Invoice","Profit"
+    ]
 
     ws.append([])
     ws.append(headers)
@@ -187,15 +184,49 @@ def export_excel():
     for row in rows:
         ws.append(row)
 
+    logo_path = os.path.join(STATIC_DIR, "logo.png")
+    if os.path.exists(logo_path):
+        logo = XLImage(logo_path)
+        ws.add_image(logo, "L1")
+
     file_path = os.path.join(BASE_DIR, "sales_export.xlsx")
     wb.save(file_path)
 
     return FileResponse(file_path, filename="mok_sales.xlsx")
 
+# ---------------- EMAIL REPORT ----------------
+
+@app.get("/email-report")
+def email_report():
+
+    file_path = export_excel().path
+
+    msg = EmailMessage()
+    msg["Subject"] = "Mok Sales Report"
+    msg["From"] = "your-email@gmail.com"
+    msg["To"] = "recipient@email.com"
+    msg.set_content("Attached is the latest sales report.")
+
+    with open(file_path, "rb") as f:
+        msg.add_attachment(
+            f.read(),
+            maintype="application",
+            subtype="xlsx",
+            filename="mok_sales.xlsx"
+        )
+
+    # configure your SMTP
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        smtp.login("your-email@gmail.com", "APP_PASSWORD")
+        smtp.send_message(msg)
+
+    return {"message": "Email sent successfully"}
+
 # ---------------- PDF INVOICE ----------------
 
 @app.get("/invoice/{sale_id}")
 def invoice(sale_id: int):
+
     conn = sqlite3.connect(DB)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM sales WHERE id=?", (sale_id,))
@@ -208,24 +239,21 @@ def invoice(sale_id: int):
     file_name = os.path.join(BASE_DIR, f"invoice_{sale_id}.pdf")
     c = canvas.Canvas(file_name)
 
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(100, 780, "Mok Transport Invoice")
-
-    c.setFont("Helvetica", 12)
     labels = [
         f"Party: {row[1]}",
         f"Supplier: {row[2]}",
-        f"Order No: {row[3]}",
+        f"Waybill: {row[3]}",
         f"Invoice No: {row[4]}",
         f"Date: {row[5]}",
         f"Supplier Cost: {row[6]}",
         f"Client Charge: {row[7]}",
-        f"VAT: {round(row[8], 2)}",
-        f"Total Invoice: {round(row[9], 2)}",
-        f"Profit: {round(row[10], 2)}"
+        f"Fuel Charge: {row[8]}",
+        f"VAT: {round(row[9], 2)}",
+        f"Total Invoice: {round(row[10], 2)}",
+        f"Profit: {round(row[11], 2)}"
     ]
 
-    y = 740
+    y = 750
     for text in labels:
         c.drawString(100, y, text)
         y -= 20
@@ -233,32 +261,8 @@ def invoice(sale_id: int):
     c.save()
     return FileResponse(file_name)
 
-# ---------------- MONTHLY DASHBOARD ----------------
-
-@app.get("/dashboard-monthly")
-def dashboard_monthly():
-    conn = sqlite3.connect(DB)
-    df = pd.read_sql_query("SELECT * FROM sales", conn)
-    conn.close()
-
-    if df.empty:
-        return []
-
-    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
-    df = df.dropna(subset=["sale_date"])
-    df["month"] = df["sale_date"].dt.strftime("%Y-%m")
-
-    monthly = df.groupby("month").agg({
-        "client_charge": "sum",
-        "vat": "sum",
-        "profit": "sum"
-    }).reset_index()
-
-    return monthly.to_dict(orient="records")
-
 # ---------------- STARTUP ----------------
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
-
