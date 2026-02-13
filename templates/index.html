@@ -99,88 +99,88 @@
 
 <body>
 
-<img src="/static/logo.png" class="logo">
+    <img src="/static/logo.png" class="logo">
 
-<h2>Mok Transport Internal Sales System</h2>
+    <h2>Mok Transport Internal Sales System</h2>
 
-<div class="card">
+    <div class="card">
 
-<form id="saleForm">
+        <form id="saleForm">
 
-    <input type="hidden" id="edit_id">
+            <input type="hidden" id="edit_id">
 
-    Party:
-    <select id="party">
-        {% for p in parties %}
-        <option value="{{p}}">{{p}}</option>
-        {% endfor %}
-    </select>
+            Party:
+            <select id="party">
+                {% for p in parties %}
+                <option value="{{p}}">{{p}}</option>
+                {% endfor %}
+            </select>
 
-    Supplier:
-    <select id="supplier">
-        {% for s in suppliers %}
-        <option value="{{s}}">{{s}}</option>
-        {% endfor %}
-    </select>
+            Supplier:
+            <select id="supplier">
+                {% for s in suppliers %}
+                <option value="{{s}}">{{s}}</option>
+                {% endfor %}
+            </select>
 
-    <br><br>
+            <br><br>
 
-    Order No: <input id="order">
-    Invoice No: <input id="invoice">
-    Waybill No: <input id="waybill">
-    Date: <input type="date" id="date"><br><br>
+            Order No: <input id="order">
+            Invoice No: <input id="invoice">
+            Waybill No: <input id="waybill">
+            Date: <input type="date" id="date"><br><br>
 
-    Supplier Cost: <input type="number" id="supplier_cost">
-    Client Charge: <input type="number" id="client_charge">
+            Supplier Cost: <input type="number" id="supplier_cost">
+            Client Charge: <input type="number" id="client_charge">
 
-    <label>
-        <input type="checkbox" id="vatToggle" checked>
-        Apply VAT
-    </label>
+            <label>
+                <input type="checkbox" id="vatToggle" checked>
+                Apply VAT
+            </label>
 
-    Payment Status:
-    <select id="paid_status">
-        <option value="Paid">Paid</option>
-        <option value="Unpaid">Unpaid</option>
-    </select>
+            Payment Status:
+            <select id="paid_status">
+                <option value="Paid">Paid</option>
+                <option value="Unpaid">Unpaid</option>
+            </select>
 
-    <br><br>
+            <br><br>
 
-    <button type="submit">Generate Profit & Save</button>
+            <button type="submit">Generate Profit & Save</button>
 
-</form>
+        </form>
 
-<h3 id="result"></h3>
+        <h3 id="result"></h3>
 
-</div>
+    </div>
 
-<div class="card">
-    <button onclick="window.location='/export-excel'">
-        Export Excel
-    </button>
-</div>
+    <div class="card">
+        <button onclick="window.location='/export-excel'">
+            Export Excel
+        </button>
+    </div>
 
-<div class="card">
-<h3>Sales Records</h3>
-<table id="table"></table>
-</div>
+    <div class="card">
+        <h3>Sales Records</h3>
+        <table id="table"></table>
+    </div>
 
-<div class="card">
-<h3>Monthly Dashboard</h3>
-<canvas id="monthlyChart"></canvas>
-</div>
+    <div class="card">
+        <h3>Monthly Dashboard</h3>
+        <canvas id="monthlyChart"></canvas>
+    </div>
 
-<script>
+    <script>
 
-let chart = null;
+        let chart = null;
 
-async function loadSales() {
-    const res = await fetch("/sales");
-    const data = await res.json();
+        async function loadSales() {
+            const res = await fetch("/sales");
+            const data = await res.json();
 
-    const table = document.getElementById("table");
+            const table = document.getElementById("table");
 
-    table.innerHTML = `
+            table.innerHTML = `
 <tr>
 <th>ID</th><th>Party</th><th>Supplier</th><th>Order</th>
 <th>Invoice</th><th>Waybill</th><th>Status</th>
@@ -188,8 +188,8 @@ async function loadSales() {
 <th>PDF</th><th>Edit</th><th>Delete</th>
 </tr>`;
 
-    data.forEach(row => {
-        table.innerHTML += `<tr>
+            data.forEach(row => {
+                table.innerHTML += `<tr>
 <td>${row.id}</td>
 <td>${row.party}</td>
 <td>${row.supplier}</td>
@@ -197,102 +197,99 @@ async function loadSales() {
 <td>${row.invoice_no}</td>
 <td>${row.waybill}</td>
 <td>${row.paid_status}</td>
-<td>${row.date}</td>
-<td>${row.total}</td>
+<td>${row.sale_date}</td>
+<td>${row.total_invoice}</td>
 <td>${row.profit}</td>
 <td><a href="/invoice/${row.id}" target="_blank">PDF</a></td>
 <td><button class="edit-btn" onclick='editSale(${JSON.stringify(row)})'>Edit</button></td>
 <td><button class="delete-btn" onclick="deleteSale(${row.id})">Delete</button></td>
 </tr>`;
-    });
-}
-
-function editSale(row) {
-    document.getElementById("edit_id").value = row.id;
-    document.getElementById("party").value = row.party;
-    document.getElementById("supplier").value = row.supplier;
-    document.getElementById("order").value = row.order_no;
-    document.getElementById("invoice").value = row.invoice_no;
-    document.getElementById("waybill").value = row.waybill;
-    document.getElementById("date").value = row.date;
-    document.getElementById("supplier_cost").value = row.supplier_cost;
-    document.getElementById("client_charge").value = row.client_charge;
-    document.getElementById("paid_status").value = row.paid_status;
-}
-
-async function deleteSale(id) {
-    if (!confirm("Delete this sale?")) return;
-    await fetch(`/delete-sale/${id}`, { method: "DELETE" });
-    loadSales();
-    loadMonthlyDashboard();
-}
-
-async function loadMonthlyDashboard() {
-    const res = await fetch("/dashboard-monthly");
-    const data = await res.json();
-
-    const labels = data.map(d => d.month);
-    const profits = data.map(d => d.profit);
-
-    if (chart) chart.destroy();
-
-    chart = new Chart(document.getElementById("monthlyChart"), {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Monthly Profit",
-                data: profits
-            }]
+            });
         }
-    });
-}
 
-document.getElementById("saleForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
+        function editSale(row) {
+            document.getElementById("edit_id").value = row.id;
+            document.getElementById("party").value = row.party;
+            document.getElementById("supplier").value = row.supplier;
+            document.getElementById("order").value = row.order_no;
+            document.getElementById("invoice").value = row.invoice_no;
+            document.getElementById("waybill").value = row.waybill;
+            document.getElementById("date").value = row.date;
+            document.getElementById("supplier_cost").value = row.supplier_cost;
+            document.getElementById("client_charge").value = row.client_charge;
+            document.getElementById("paid_status").value = row.paid_status;
+        }
 
-    const vatEnabled = document.getElementById("vatToggle").checked;
+        async function deleteSale(id) {
+            if (!confirm("Delete this sale?")) return;
+            await fetch(`/delete-sale/${id}`, { method: "DELETE" });
+            loadSales();
+            loadMonthlyDashboard();
+        }
 
-    const sale = {
-        id: document.getElementById("edit_id").value || null,
-        party: document.getElementById("party").value,
-        supplier: document.getElementById("supplier").value,
-        order_no: document.getElementById("order").value,
-        invoice_no: document.getElementById("invoice").value,
-        waybill: document.getElementById("waybill").value,
-        sale_date: document.getElementById("date").value,
-        supplier_cost: parseFloat(document.getElementById("supplier_cost").value || 0),
-        client_charge: parseFloat(document.getElementById("client_charge").value || 0),
-        paid_status: document.getElementById("paid_status").value
-    };
+        async function loadMonthlyDashboard() {
+            const res = await fetch("/dashboard-monthly");
+            const data = await res.json();
 
-    const res = await fetch(`/record-sale?vat_enabled=${vatEnabled}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sale)
-    });
+            const labels = data.map(d => d.month);
+            const profits = data.map(d => d.profit);
 
-    const result = await res.json();
+            if (chart) chart.destroy();
 
-    document.getElementById("result").innerText =
-        `VAT: ${result.vat} | Total: ${result.total_invoice} | Profit: ${result.profit}`;
+            chart = new Chart(document.getElementById("monthlyChart"), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "Monthly Profit",
+                        data: profits
+                    }]
+                }
+            });
+        }
 
-    document.getElementById("saleForm").reset();
-    document.getElementById("edit_id").value = "";
+        document.getElementById("saleForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
 
-    loadSales();
-    loadMonthlyDashboard();
-});
+            const vatEnabled = document.getElementById("vatToggle").checked;
 
-loadSales();
-loadMonthlyDashboard();
+            const sale = {
+                id: document.getElementById("edit_id").value || null,
+                party: document.getElementById("party").value,
+                supplier: document.getElementById("supplier").value,
+                order_no: document.getElementById("order").value,
+                invoice_no: document.getElementById("invoice").value,
+                waybill: document.getElementById("waybill").value,
+                sale_date: document.getElementById("date").value,
+                supplier_cost: parseFloat(document.getElementById("supplier_cost").value || 0),
+                client_charge: parseFloat(document.getElementById("client_charge").value || 0),
+                paid_status: document.getElementById("paid_status").value
+            };
 
-</script>
+            const res = await fetch(`/record-sale?vat_enabled=${vatEnabled}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(sale)
+            });
+
+            const result = await res.json();
+
+            document.getElementById("result").innerText =
+                `VAT: ${result.vat} | Total: ${result.total_invoice} | Profit: ${result.profit}`;
+
+            document.getElementById("saleForm").reset();
+            document.getElementById("edit_id").value = "";
+
+            loadSales();
+            loadMonthlyDashboard();
+        });
+
+        loadSales();
+        loadMonthlyDashboard();
+
+    </script>
 
 </body>
 
 </html>
-
-
-
 
