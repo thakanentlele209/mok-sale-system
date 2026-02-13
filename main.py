@@ -1,14 +1,10 @@
 from fastapi import FastAPI, Request, Query
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import sqlite3
 import pandas as pd
-from reportlab.pdfgen import canvas
-from openpyxl import Workbook
-from openpyxl.drawing.image import Image as XLImage
-from openpyxl.styles import Font, Alignment
 import os
 import uvicorn
 
@@ -24,13 +20,20 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 VAT_RATE = 0.15
 
-# ---------------- DATABASE ----------------
+
+# ---------- DATABASE ----------
+
+def get_conn():
+    conn = sqlite3.connect(DB)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 
 def init_db():
-    conn = sqlite3.connect(DB)
-    cursor = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
 
-    cursor.execute("""
+    c.execute("""
     CREATE TABLE IF NOT EXISTS sales (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         party TEXT,
@@ -50,9 +53,11 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 init_db()
 
-# ---------------- DATA ----------------
+
+# ---------- DATA ----------
 
 PARTIES = [
     "KONE","OTIS","ALICEWEAR","SPIRAX SARCO","TRACLO PTY LTD",
@@ -63,7 +68,8 @@ PARTIES = [
 
 SUPPLIERS = ["DHL", "JKJ", "MOK"]
 
-# ---------------- MODEL ----------------
+
+# ---------- MODEL ----------
 
 class Sale(BaseModel):
     party: str
@@ -75,7 +81,8 @@ class Sale(BaseModel):
     client_charge: float
     status: str
 
-# ---------------- HOME ----------------
+
+# ---------- HOME ----------
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -84,27 +91,37 @@ def home(request: Request):
         {"request": request, "parties": PARTIES, "suppliers": SUPPLIERS}
     )
 
-# ---------------- RECORD SALE ----------------
+
+# ---------- RECORD ----------
 
 @app.post("/record-sale")
 def record_sale(sale: Sale, vat_enabled: bool = Query(True)):
+
     vat = sale.client_charge * VAT_RATE if vat_enabled else 0
-    total_invoice = sale.client_charge + vat
+    total = sale.client_charge + vat
     profit = sale.client_charge - sale.supplier_cost
 
-    conn = sqlite3.connect(DB)
-    cursor = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO sales (
-            party, supplier, waybill, invoice_no, sale_date,
-            supplier_cost, client_charge, vat, total_invoice, profit, status
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    c.execute("""
+    INSERT INTO sales (
+        party, supplier, waybill, invoice_no, sale_date,
+        supplier_cost, client_charge, vat, total_invoice, profit, status
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        sale.party, sale.supplier, sale.waybill, sale.invoice_no,
-        sale.sale_date, sale.supplier_cost, sale.client_charge,
-        vat, total_invoice, profit, sale.status
+        sale.party,
+        sale.supplier,
+        sale.waybill,
+        sale.invoice_no,
+        sale.sale_date,
+        sale.supplier_cost,
+        sale.client_charge,
+        vat,
+        total,
+        profit,
+        sale.status
     ))
 
     conn.commit()
@@ -112,75 +129,90 @@ def record_sale(sale: Sale, vat_enabled: bool = Query(True)):
 
     return JSONResponse({
         "vat": round(vat, 2),
-        "total_invoice": round(total_invoice, 2),
+        "total_invoice": round(total, 2),
         "profit": round(profit, 2)
     })
 
-# ---------------- UPDATE SALE ----------------
+
+# ---------- UPDATE ----------
 
 @app.put("/update-sale/{sale_id}")
 def update_sale(sale_id: int, sale: Sale):
-    conn = sqlite3.connect(DB)
-    cursor = conn.cursor()
 
     vat = sale.client_charge * VAT_RATE
-    total_invoice = sale.client_charge + vat
+    total = sale.client_charge + vat
     profit = sale.client_charge - sale.supplier_cost
 
-    cursor.execute("""
-        UPDATE sales SET
-            party=?,
-            supplier=?,
-            waybill=?,
-            invoice_no=?,
-            sale_date=?,
-            supplier_cost=?,
-            client_charge=?,
-            vat=?,
-            total_invoice=?,
-            profit=?,
-            status=?
-        WHERE id=?
+    conn = get_conn()
+    c = conn.cursor()
+
+    c.execute("""
+    UPDATE sales SET
+        party=?,
+        supplier=?,
+        waybill=?,
+        invoice_no=?,
+        sale_date=?,
+        supplier_cost=?,
+        client_charge=?,
+        vat=?,
+        total_invoice=?,
+        profit=?,
+        status=?
+    WHERE id=?
     """, (
-        sale.party, sale.supplier, sale.waybill, sale.invoice_no,
-        sale.sale_date, sale.supplier_cost, sale.client_charge,
-        vat, total_invoice, profit, sale.status, sale_id
+        sale.party,
+        sale.supplier,
+        sale.waybill,
+        sale.invoice_no,
+        sale.sale_date,
+        sale.supplier_cost,
+        sale.client_charge,
+        vat,
+        total,
+        profit,
+        sale.status,
+        sale_id
     ))
 
     conn.commit()
     conn.close()
 
-    return {"message": "Sale updated"}
+    return {"message": "updated"}
 
-# ---------------- SALES LIST ----------------
+
+# ---------- LIST ----------
 
 @app.get("/sales")
 def get_sales():
-    conn = sqlite3.connect(DB)
-    cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM sales")
-    rows = cursor.fetchall()
-
+    conn = get_conn()
+    rows = conn.execute("SELECT * FROM sales ORDER BY id DESC").fetchall()
     conn.close()
+
+    # return as array (your JS expects index positions)
     return [list(row) for row in rows]
 
-# ---------------- DELETE ----------------
+
+# ---------- DELETE ----------
 
 @app.delete("/delete-sale/{sale_id}")
 def delete_sale(sale_id: int):
-    conn = sqlite3.connect(DB)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM sales WHERE id=?", (sale_id,))
+
+    conn = get_conn()
+    conn.execute("DELETE FROM sales WHERE id=?", (sale_id,))
     conn.commit()
     conn.close()
-    return {"message": "Deleted"}
 
-# ---------------- DASHBOARD ----------------
+    return {"status": "deleted"}
+
+
+# ---------- DASHBOARD ----------
 
 @app.get("/dashboard-monthly")
-def dashboard_monthly():
-    conn = sqlite3.connect(DB)
+def dashboard():
+
+    conn = get_conn()
     df = pd.read_sql_query("SELECT * FROM sales", conn)
     conn.close()
 
@@ -190,16 +222,14 @@ def dashboard_monthly():
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
     df["month"] = df["sale_date"].dt.strftime("%Y-%m")
 
-    monthly = df.groupby("month").agg({
-        "profit": "sum"
-    }).reset_index()
+    monthly = df.groupby("month")["profit"].sum().reset_index()
 
     return monthly.to_dict(orient="records")
 
-# ---------------- START ----------------
+
+# ---------- START ----------
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
-
 
