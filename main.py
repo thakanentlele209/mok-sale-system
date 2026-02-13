@@ -35,39 +35,20 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         party TEXT,
         supplier TEXT,
-        order_no TEXT,
+        waybill TEXT,
         invoice_no TEXT,
         sale_date TEXT,
         supplier_cost REAL,
         client_charge REAL,
         vat REAL,
         total_invoice REAL,
-        profit REAL
+        profit REAL,
+        status TEXT
     )
     """)
 
-    # --- schema repair (adds missing columns safely) ---
-    cursor.execute("PRAGMA table_info(sales)")
-    existing_cols = [col[1] for col in cursor.fetchall()]
-
-    required_cols = {
-        "order_no": "TEXT",
-        "invoice_no": "TEXT",
-        "sale_date": "TEXT",
-        "supplier_cost": "REAL",
-        "client_charge": "REAL",
-        "vat": "REAL",
-        "total_invoice": "REAL",
-        "profit": "REAL"
-    }
-
-    for col, col_type in required_cols.items():
-        if col not in existing_cols:
-            cursor.execute(f"ALTER TABLE sales ADD COLUMN {col} {col_type}")
-
     conn.commit()
     conn.close()
-
 
 init_db()
 
@@ -87,11 +68,12 @@ SUPPLIERS = ["DHL", "JKJ", "MOK"]
 class Sale(BaseModel):
     party: str
     supplier: str
-    order_no: str
+    waybill: str
     invoice_no: str
     sale_date: str
     supplier_cost: float
     client_charge: float
+    status: str
 
 # ---------------- HOME ----------------
 
@@ -115,14 +97,14 @@ def record_sale(sale: Sale, vat_enabled: bool = Query(True)):
 
     cursor.execute("""
         INSERT INTO sales (
-            party, supplier, order_no, invoice_no, sale_date,
-            supplier_cost, client_charge, vat, total_invoice, profit
+            party, supplier, waybill, invoice_no, sale_date,
+            supplier_cost, client_charge, vat, total_invoice, profit, status
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        sale.party, sale.supplier, sale.order_no, sale.invoice_no,
+        sale.party, sale.supplier, sale.waybill, sale.invoice_no,
         sale.sale_date, sale.supplier_cost, sale.client_charge,
-        vat, total_invoice, profit
+        vat, total_invoice, profit, sale.status
     ))
 
     conn.commit()
@@ -134,6 +116,42 @@ def record_sale(sale: Sale, vat_enabled: bool = Query(True)):
         "profit": round(profit, 2)
     })
 
+# ---------------- UPDATE SALE ----------------
+
+@app.put("/update-sale/{sale_id}")
+def update_sale(sale_id: int, sale: Sale):
+    conn = sqlite3.connect(DB)
+    cursor = conn.cursor()
+
+    vat = sale.client_charge * VAT_RATE
+    total_invoice = sale.client_charge + vat
+    profit = sale.client_charge - sale.supplier_cost
+
+    cursor.execute("""
+        UPDATE sales SET
+            party=?,
+            supplier=?,
+            waybill=?,
+            invoice_no=?,
+            sale_date=?,
+            supplier_cost=?,
+            client_charge=?,
+            vat=?,
+            total_invoice=?,
+            profit=?,
+            status=?
+        WHERE id=?
+    """, (
+        sale.party, sale.supplier, sale.waybill, sale.invoice_no,
+        sale.sale_date, sale.supplier_cost, sale.client_charge,
+        vat, total_invoice, profit, sale.status, sale_id
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "Sale updated"}
+
 # ---------------- SALES LIST ----------------
 
 @app.get("/sales")
@@ -141,15 +159,13 @@ def get_sales():
     conn = sqlite3.connect(DB)
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT id, party, supplier, order_no, invoice_no,
-               sale_date, client_charge, total_invoice, profit
-        FROM sales
-    """)
-
+    cursor.execute("SELECT * FROM sales")
     rows = cursor.fetchall()
+
     conn.close()
     return [list(row) for row in rows]
+
+# ---------------- DELETE ----------------
 
 @app.delete("/delete-sale/{sale_id}")
 def delete_sale(sale_id: int):
@@ -158,124 +174,32 @@ def delete_sale(sale_id: int):
     cursor.execute("DELETE FROM sales WHERE id=?", (sale_id,))
     conn.commit()
     conn.close()
-    return {"message": "Sale deleted"}
+    return {"message": "Deleted"}
 
-# ---------------- EXPORT EXCEL ----------------
-
-@app.get("/export-excel")
-def export_excel():
-    conn = sqlite3.connect(DB)
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM sales")
-    rows = cur.fetchall()
-    conn.close()
-
-    wb = Workbook()
-    ws = wb.active
-
-    ws.merge_cells("A1:H1")
-    ws["A1"] = "MOK TRANSPORT"
-    ws["A1"].font = Font(size=18, bold=True)
-    ws["A1"].alignment = Alignment(horizontal="center")
-
-    ws.merge_cells("A2:H2")
-    ws["A2"] = "12 JUPITER STELLER MALL, SHOP CO1 CROWN MINES, JOHANNESBURG, 2000"
-    ws["A2"].alignment = Alignment(horizontal="center")
-
-    logo_path = os.path.join(STATIC_DIR, "logo.png")
-    if os.path.exists(logo_path):
-        logo = XLImage(logo_path)
-        logo.width = 120
-        logo.height = 80
-        ws.add_image(logo, "I1")
-
-    headers = ["ID","Party","Supplier","Order","Invoice","Date",
-               "Supplier Cost","Total Invoice","Profit"]
-
-    ws.append([])
-    ws.append(headers)
-
-    for col in ws[4]:
-        col.font = Font(bold=True)
-
-    for row in rows:
-        ws.append(row)
-
-    file_path = os.path.join(BASE_DIR, "sales_export.xlsx")
-    wb.save(file_path)
-
-    return FileResponse(file_path, filename="mok_sales.xlsx")
-
-# ---------------- PDF INVOICE ----------------
-
-@app.get("/invoice/{sale_id}")
-def invoice(sale_id: int):
-    conn = sqlite3.connect(DB)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM sales WHERE id=?", (sale_id,))
-    row = cursor.fetchone()
-    conn.close()
-
-    if not row:
-        return {"error": "Sale not found"}
-
-    file_name = os.path.join(BASE_DIR, f"invoice_{sale_id}.pdf")
-    c = canvas.Canvas(file_name)
-
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(100, 780, "Mok Transport Invoice")
-
-    c.setFont("Helvetica", 12)
-    labels = [
-        f"Party: {row[1]}",
-        f"Supplier: {row[2]}",
-        f"Waybill: {row[3]}",
-        f"Invoice No: {row[4]}",
-        f"Date: {row[5]}",
-        f"Supplier Cost: {row[6]}",
-        f"Client Charge: {row[7]}",
-        f"VAT: {round(row[8], 2)}",
-        f"Total Invoice: {round(row[9], 2)}",
-        f"Profit: {round(row[10], 2)}"
-    ]
-
-    y = 740
-    for text in labels:
-        c.drawString(100, y, text)
-        y -= 20
-
-    c.save()
-    return FileResponse(file_name)
-
-
+# ---------------- DASHBOARD ----------------
 
 @app.get("/dashboard-monthly")
 def dashboard_monthly():
     conn = sqlite3.connect(DB)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT substr(sale_date, 1, 7) as month,
-               SUM(profit)
-        FROM sales
-        GROUP BY month
-        ORDER BY month
-    """)
-
-    rows = cursor.fetchall()
+    df = pd.read_sql_query("SELECT * FROM sales", conn)
     conn.close()
 
-    return [{"month": r[0], "profit": r[1] or 0} for r in rows]
+    if df.empty:
+        return []
 
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
+    df["month"] = df["sale_date"].dt.strftime("%Y-%m")
+
+    monthly = df.groupby("month").agg({
+        "profit": "sum"
+    }).reset_index()
+
+    return monthly.to_dict(orient="records")
 
 # ---------------- START ----------------
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
-
-
-
-
 
 

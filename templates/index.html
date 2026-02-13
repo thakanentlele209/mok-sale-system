@@ -79,8 +79,8 @@
             background: #c62828;
         }
 
-        .delete-btn:hover {
-            background: #e53935;
+        .edit-btn {
+            background: #f59e0b;
         }
 
         label {
@@ -99,169 +99,200 @@
 
 <body>
 
-    <img src="/static/logo.png" class="logo">
+<img src="/static/logo.png" class="logo">
 
-    <h2>Mok Transport Internal Sales System</h2>
+<h2>Mok Transport Internal Sales System</h2>
 
-    <div class="card">
+<div class="card">
 
-        <form id="saleForm">
+<form id="saleForm">
 
-            Party:
-            <select id="party">
-                {% for p in parties %}
-                <option value="{{p}}">{{p}}</option>
-                {% endfor %}
-            </select>
+    <input type="hidden" id="edit_id">
 
-            Supplier:
-            <select id="supplier">
-                {% for s in suppliers %}
-                <option value="{{s}}">{{s}}</option>
-                {% endfor %}
-            </select>
+    Party:
+    <select id="party">
+        {% for p in parties %}
+        <option value="{{p}}">{{p}}</option>
+        {% endfor %}
+    </select>
 
-            <br><br>
+    Supplier:
+    <select id="supplier">
+        {% for s in suppliers %}
+        <option value="{{s}}">{{s}}</option>
+        {% endfor %}
+    </select>
 
-            Order No: <input id="order">
-            Invoice No: <input id="invoice">
-            Date: <input type="date" id="date"><br><br>
+    <br><br>
 
-            Supplier Cost: <input type="number" id="supplier_cost">
-            Client Charge: <input type="number" id="client_charge">
+    Order No: <input id="order">
+    Invoice No: <input id="invoice">
+    Waybill No: <input id="waybill">
+    Date: <input type="date" id="date"><br><br>
 
-            <label>
-                <input type="checkbox" id="vatToggle" checked>
-                Apply VAT
-            </label>
+    Supplier Cost: <input type="number" id="supplier_cost">
+    Client Charge: <input type="number" id="client_charge">
 
-            <br><br>
+    <label>
+        <input type="checkbox" id="vatToggle" checked>
+        Apply VAT
+    </label>
 
-            <button type="submit">Generate Profit & Save</button>
+    Payment Status:
+    <select id="paid_status">
+        <option value="Paid">Paid</option>
+        <option value="Unpaid">Unpaid</option>
+    </select>
 
-        </form>
+    <br><br>
 
-        <h3 id="result"></h3>
+    <button type="submit">Generate Profit & Save</button>
 
-    </div>
+</form>
 
-    <div class="card">
-        <button onclick="window.location='/export-excel'">
-            Export Excel
-        </button>
-    </div>
+<h3 id="result"></h3>
 
-    <div class="card">
-        <h3>Sales Records</h3>
-        <table id="table"></table>
-    </div>
+</div>
 
-    <div class="card">
-        <h3>Monthly Dashboard</h3>
-        <canvas id="monthlyChart"></canvas>
-    </div>
+<div class="card">
+    <button onclick="window.location='/export-excel'">
+        Export Excel
+    </button>
+</div>
 
-    <script>
+<div class="card">
+<h3>Sales Records</h3>
+<table id="table"></table>
+</div>
 
-        let chart = null;
+<div class="card">
+<h3>Monthly Dashboard</h3>
+<canvas id="monthlyChart"></canvas>
+</div>
 
-        async function loadSales() {
-            const res = await fetch("/sales");
-            const data = await res.json();
+<script>
 
-            const table = document.getElementById("table");
+let chart = null;
 
-            table.innerHTML = `
+async function loadSales() {
+    const res = await fetch("/sales");
+    const data = await res.json();
+
+    const table = document.getElementById("table");
+
+    table.innerHTML = `
 <tr>
 <th>ID</th><th>Party</th><th>Supplier</th><th>Order</th>
-<th>Invoice</th><th>Date</th><th>Total</th>
-<th>Profit</th><th>Invoice PDF</th><th>Delete</th>
+<th>Invoice</th><th>Waybill</th><th>Status</th>
+<th>Date</th><th>Total</th><th>Profit</th>
+<th>PDF</th><th>Edit</th><th>Delete</th>
 </tr>`;
 
-            data.forEach(row => {
-                table.innerHTML += `<tr>
-<td>${row[0]}</td>
-<td>${row[1]}</td>
-<td>${row[2]}</td>
-<td>${row[3]}</td>
-<td>${row[4]}</td>
-<td>${row[5]}</td>
-<td>${row[7]}</td>
-<td>${row[8]}</td>
-<td><a href="/invoice/${row[0]}" target="_blank">PDF</a></td>
-<td><button class="delete-btn" onclick="deleteSale(${row[0]})">Delete</button></td>
+    data.forEach(row => {
+        table.innerHTML += `<tr>
+<td>${row.id}</td>
+<td>${row.party}</td>
+<td>${row.supplier}</td>
+<td>${row.order_no}</td>
+<td>${row.invoice_no}</td>
+<td>${row.waybill}</td>
+<td>${row.paid_status}</td>
+<td>${row.date}</td>
+<td>${row.total}</td>
+<td>${row.profit}</td>
+<td><a href="/invoice/${row.id}" target="_blank">PDF</a></td>
+<td><button class="edit-btn" onclick='editSale(${JSON.stringify(row)})'>Edit</button></td>
+<td><button class="delete-btn" onclick="deleteSale(${row.id})">Delete</button></td>
 </tr>`;
-            });
+    });
+}
+
+function editSale(row) {
+    document.getElementById("edit_id").value = row.id;
+    document.getElementById("party").value = row.party;
+    document.getElementById("supplier").value = row.supplier;
+    document.getElementById("order").value = row.order_no;
+    document.getElementById("invoice").value = row.invoice_no;
+    document.getElementById("waybill").value = row.waybill;
+    document.getElementById("date").value = row.date;
+    document.getElementById("supplier_cost").value = row.supplier_cost;
+    document.getElementById("client_charge").value = row.client_charge;
+    document.getElementById("paid_status").value = row.paid_status;
+}
+
+async function deleteSale(id) {
+    if (!confirm("Delete this sale?")) return;
+    await fetch(`/delete-sale/${id}`, { method: "DELETE" });
+    loadSales();
+    loadMonthlyDashboard();
+}
+
+async function loadMonthlyDashboard() {
+    const res = await fetch("/dashboard-monthly");
+    const data = await res.json();
+
+    const labels = data.map(d => d.month);
+    const profits = data.map(d => d.profit);
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(document.getElementById("monthlyChart"), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Monthly Profit",
+                data: profits
+            }]
         }
+    });
+}
 
-        async function deleteSale(id) {
+document.getElementById("saleForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-            const confirmDelete = confirm("Are you sure you want to delete this sale?");
-            if (!confirmDelete) return;
+    const vatEnabled = document.getElementById("vatToggle").checked;
 
-            await fetch(`/delete-sale/${id}`, { method: "DELETE" });
+    const sale = {
+        id: document.getElementById("edit_id").value || null,
+        party: document.getElementById("party").value,
+        supplier: document.getElementById("supplier").value,
+        order_no: document.getElementById("order").value,
+        invoice_no: document.getElementById("invoice").value,
+        waybill: document.getElementById("waybill").value,
+        sale_date: document.getElementById("date").value,
+        supplier_cost: parseFloat(document.getElementById("supplier_cost").value || 0),
+        client_charge: parseFloat(document.getElementById("client_charge").value || 0),
+        paid_status: document.getElementById("paid_status").value
+    };
 
-            loadSales();
-            loadMonthlyDashboard();
-        }
+    const res = await fetch(`/record-sale?vat_enabled=${vatEnabled}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sale)
+    });
 
-        async function loadMonthlyDashboard() {
-            const res = await fetch("/dashboard-monthly");
-            const data = await res.json();
+    const result = await res.json();
 
-            const labels = data.map(d => d.month);
-            const profits = data.map(d => d.profit);
+    document.getElementById("result").innerText =
+        `VAT: ${result.vat} | Total: ${result.total_invoice} | Profit: ${result.profit}`;
 
-            if (chart) chart.destroy();
+    document.getElementById("saleForm").reset();
+    document.getElementById("edit_id").value = "";
 
-            chart = new Chart(document.getElementById("monthlyChart"), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: "Monthly Profit",
-                        data: profits
-                    }]
-                }
-            });
-        }
+    loadSales();
+    loadMonthlyDashboard();
+});
 
-        document.getElementById("saleForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
+loadSales();
+loadMonthlyDashboard();
 
-            const vatEnabled = document.getElementById("vatToggle").checked;
-
-            const sale = {
-                party: document.getElementById("party").value,
-                supplier: document.getElementById("supplier").value,
-                order_no: document.getElementById("order").value,
-                invoice_no: document.getElementById("invoice").value,
-                sale_date: document.getElementById("date").value,
-                supplier_cost: parseFloat(document.getElementById("supplier_cost").value || 0),
-                client_charge: parseFloat(document.getElementById("client_charge").value || 0)
-            };
-
-            const res = await fetch(`/record-sale?vat_enabled=${vatEnabled}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(sale)
-            });
-
-            const result = await res.json();
-
-            document.getElementById("result").innerText =
-                `VAT: ${result.vat} | Total: ${result.total_invoice} | Profit: ${result.profit}`;
-
-            loadSales();
-            loadMonthlyDashboard();
-        });
-
-        loadSales();
-        loadMonthlyDashboard();
-
-    </script>
+</script>
 
 </body>
 
 </html>
+
+
+
 
