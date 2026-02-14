@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -38,15 +38,16 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         party TEXT,
         supplier TEXT,
-        waybill TEXT,
+        order_no TEXT,
         invoice_no TEXT,
+        waybill TEXT,
         sale_date TEXT,
         supplier_cost REAL,
         client_charge REAL,
         vat REAL,
         total_invoice REAL,
         profit REAL,
-        status TEXT
+        paid_status TEXT
     )
     """)
 
@@ -55,6 +56,20 @@ def init_db():
 
 
 init_db()
+
+
+# ---------- MODEL ----------
+
+class Sale(BaseModel):
+    party: str
+    supplier: str
+    order_no: str
+    invoice_no: str
+    waybill: str
+    sale_date: str
+    supplier_cost: float
+    client_charge: float
+    paid_status: str
 
 
 # ---------- DATA ----------
@@ -67,19 +82,6 @@ PARTIES = [
 ]
 
 SUPPLIERS = ["DHL", "JKJ", "MOK"]
-
-
-# ---------- MODEL ----------
-
-class Sale(BaseModel):
-    party: str
-    supplier: str
-    waybill: str
-    invoice_no: str
-    sale_date: str
-    supplier_cost: float
-    client_charge: float
-    status: str
 
 
 # ---------- HOME ----------
@@ -106,22 +108,23 @@ def record_sale(sale: Sale, vat_enabled: bool = Query(True)):
 
     c.execute("""
     INSERT INTO sales (
-        party, supplier, waybill, invoice_no, sale_date,
-        supplier_cost, client_charge, vat, total_invoice, profit, status
+        party, supplier, order_no, invoice_no, waybill, sale_date,
+        supplier_cost, client_charge, vat, total_invoice, profit, paid_status
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         sale.party,
         sale.supplier,
-        sale.waybill,
+        sale.order_no,
         sale.invoice_no,
+        sale.waybill,
         sale.sale_date,
         sale.supplier_cost,
         sale.client_charge,
         vat,
         total,
         profit,
-        sale.status
+        sale.paid_status
     ))
 
     conn.commit()
@@ -141,8 +144,6 @@ def get_sales():
     conn = get_conn()
     rows = conn.execute("SELECT * FROM sales ORDER BY id DESC").fetchall()
     conn.close()
-
-    # return named objects
     return [dict(row) for row in rows]
 
 
@@ -155,6 +156,21 @@ def delete_sale(sale_id: int):
     conn.commit()
     conn.close()
     return {"status": "deleted"}
+
+
+# ---------- EXPORT ----------
+
+@app.get("/export-excel")
+def export_excel():
+
+    conn = get_conn()
+    df = pd.read_sql_query("SELECT * FROM sales", conn)
+    conn.close()
+
+    path = os.path.join(BASE_DIR, "sales_export.xlsx")
+    df.to_excel(path, index=False)
+
+    return FileResponse(path, filename="sales_export.xlsx")
 
 
 # ---------- DASHBOARD ----------
@@ -182,5 +198,3 @@ def dashboard():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
-
-
