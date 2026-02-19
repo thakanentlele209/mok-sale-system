@@ -158,6 +158,57 @@ def delete_sale(sale_id: int):
     return {"status": "deleted"}
 
 
+
+# ---------- UPDATE ----------
+
+@app.put("/update-sale/{sale_id}")
+def update_sale(sale_id: int, sale: Sale, vat_enabled: bool = Query(True)):
+
+    vat = sale.client_charge * VAT_RATE if vat_enabled else 0
+    total = sale.client_charge + vat
+    profit = sale.client_charge - sale.supplier_cost
+
+    conn = get_conn()
+    conn.execute("""
+        UPDATE sales SET
+            party=?,
+            supplier=?,
+            order_no=?,
+            invoice_no=?,
+            waybill=?,
+            sale_date=?,
+            supplier_cost=?,
+            client_charge=?,
+            vat=?,
+            total_invoice=?,
+            profit=?,
+            paid_status=?
+        WHERE id=?
+    """, (
+        sale.party,
+        sale.supplier,
+        sale.order_no,
+        sale.invoice_no,
+        sale.waybill,
+        sale.sale_date,
+        sale.supplier_cost,
+        sale.client_charge,
+        vat,
+        total,
+        profit,
+        sale.paid_status,
+        sale_id
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "vat": round(vat, 2),
+        "total_invoice": round(total, 2),
+        "profit": round(profit, 2)
+    }
+
 # ---------- EXPORT ----------
 
 @app.get("/export-excel")
@@ -198,3 +249,5 @@ def dashboard():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+

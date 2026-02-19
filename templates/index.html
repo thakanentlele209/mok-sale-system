@@ -185,7 +185,7 @@
 <th>ID</th><th>Party</th><th>Supplier</th><th>Order</th>
 <th>Invoice</th><th>Waybill</th><th>Status</th>
 <th>Date</th><th>Total</th><th>Profit</th>
-<th>PDF</th><th>Edit</th><th>Delete</th>
+<th>Edit</th><th>Delete</th>
 </tr>`;
 
             data.forEach(row => {
@@ -200,7 +200,6 @@
 <td>${row.sale_date}</td>
 <td>${row.total_invoice}</td>
 <td>${row.profit}</td>
-<td><a href="/invoice/${row.id}" target="_blank">PDF</a></td>
 <td><button class="edit-btn" onclick='editSale(${JSON.stringify(row)})'>Edit</button></td>
 <td><button class="delete-btn" onclick="deleteSale(${row.id})">Delete</button></td>
 </tr>`;
@@ -214,11 +213,12 @@
             document.getElementById("order").value = row.order_no;
             document.getElementById("invoice").value = row.invoice_no;
             document.getElementById("waybill").value = row.waybill;
-            document.getElementById("date").value = row.date;
+            document.getElementById("date").value = row.sale_date; // FIXED
             document.getElementById("supplier_cost").value = row.supplier_cost;
             document.getElementById("client_charge").value = row.client_charge;
             document.getElementById("paid_status").value = row.paid_status;
         }
+
 
         async function deleteSale(id) {
             if (!confirm("Delete this sale?")) return;
@@ -252,9 +252,9 @@
             e.preventDefault();
 
             const vatEnabled = document.getElementById("vatToggle").checked;
+            const editId = document.getElementById("edit_id").value;
 
             const sale = {
-                id: document.getElementById("edit_id").value || null,
                 party: document.getElementById("party").value,
                 supplier: document.getElementById("supplier").value,
                 order_no: document.getElementById("order").value,
@@ -266,8 +266,16 @@
                 paid_status: document.getElementById("paid_status").value
             };
 
-            const res = await fetch(`/record-sale?vat_enabled=${vatEnabled}`, {
-                method: "POST",
+            let url = `/record-sale?vat_enabled=${vatEnabled}`;
+            let method = "POST";
+
+            if (editId) {
+                url = `/update-sale/${editId}?vat_enabled=${vatEnabled}`;
+                method = "PUT";
+            }
+
+            const res = await fetch(url, {
+                method: method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(sale)
             });
@@ -284,6 +292,7 @@
             loadMonthlyDashboard();
         });
 
+
         loadSales();
         loadMonthlyDashboard();
 
@@ -292,4 +301,5 @@
 </body>
 
 </html>
+
 
