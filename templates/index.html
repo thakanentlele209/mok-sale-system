@@ -211,8 +211,12 @@
             const res = await fetch("/sales");
             const data = await res.json();
 
-            const row = data.find(r => r.id === id);
-            if (!row) return;
+            const row = data.find(r => r.id == id);  // <-- double equals (important)
+
+            if (!row) {
+                console.log("Row not found for id:", id);
+                return;
+            }
 
             document.getElementById("edit_id").value = row.id;
             document.getElementById("party").value = row.party;
@@ -224,8 +228,9 @@
             document.getElementById("supplier_cost").value = row.supplier_cost;
             document.getElementById("client_charge").value = row.client_charge;
             document.getElementById("paid_status").value = row.paid_status;
-        }
 
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
 
 
         async function deleteSale(id) {
@@ -309,5 +314,4 @@
 </body>
 
 </html>
-
 
