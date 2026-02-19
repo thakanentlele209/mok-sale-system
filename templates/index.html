@@ -200,24 +200,32 @@
 <td>${row.sale_date}</td>
 <td>${row.total_invoice}</td>
 <td>${row.profit}</td>
-<td><button class="edit-btn" onclick='editSale(${JSON.stringify(row)})'>Edit</button></td>
+<td><button class="edit-btn" onclick="editSale(${row.id})">Edit</button></td>
 <td><button class="delete-btn" onclick="deleteSale(${row.id})">Delete</button></td>
 </tr>`;
             });
         }
 
-        function editSale(row) {
+        async function editSale(id) {
+
+            const res = await fetch("/sales");
+            const data = await res.json();
+
+            const row = data.find(r => r.id === id);
+            if (!row) return;
+
             document.getElementById("edit_id").value = row.id;
             document.getElementById("party").value = row.party;
             document.getElementById("supplier").value = row.supplier;
             document.getElementById("order").value = row.order_no;
             document.getElementById("invoice").value = row.invoice_no;
             document.getElementById("waybill").value = row.waybill;
-            document.getElementById("date").value = row.sale_date; // FIXED
+            document.getElementById("date").value = row.sale_date;
             document.getElementById("supplier_cost").value = row.supplier_cost;
             document.getElementById("client_charge").value = row.client_charge;
             document.getElementById("paid_status").value = row.paid_status;
         }
+
 
 
         async function deleteSale(id) {
