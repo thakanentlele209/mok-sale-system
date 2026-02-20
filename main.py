@@ -244,6 +244,23 @@ def dashboard():
     return monthly.to_dict(orient="records")
 
 
+# ---------- DASHBOARD BY PARTY ----------
+
+@app.get("/dashboard-by-party")
+def dashboard_by_party():
+
+    conn = get_conn()
+    df = pd.read_sql_query("SELECT * FROM sales", conn)
+    conn.close()
+
+    if df.empty:
+        return []
+
+    party_profit = df.groupby("party")["profit"].sum().reset_index()
+
+    return party_profit.to_dict(orient="records")
+
+
 # ---------- START ----------
 
 if __name__ == "__main__":
