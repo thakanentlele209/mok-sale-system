@@ -1,317 +1,202 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <title>Mok Transport Internal Sales System</title>
+    <title>MOK Transport Sales</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            margin: 40px;
-            background: #eef2f6;
-            color: #1f2933;
-        }
-
-        h2 {
-            color: #0d47a1;
-            margin-bottom: 8px;
-        }
-
-        .logo {
-            width: 180px;
-            margin-bottom: 12px;
-        }
-
-        .card {
-            background: white;
-            padding: 22px;
-            border-radius: 12px;
-            margin-bottom: 22px;
-            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
-            border-left: 6px solid #0d47a1;
-        }
-
-        input,
-        select {
-            padding: 8px;
-            margin: 6px 4px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            background: #f9fafb;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-        }
-
-        th,
-        td {
-            border: 1px solid #e5e7eb;
-            padding: 10px;
-            text-align: left;
-        }
-
-        th {
-            background: #0d47a1;
-            color: white;
-            font-weight: bold;
-        }
-
-        button {
-            padding: 10px 16px;
-            cursor: pointer;
-            border: none;
-            border-radius: 6px;
-            background: #0d47a1;
-            color: white;
-            font-weight: bold;
-            transition: 0.2s ease;
-        }
-
-        button:hover {
-            background: #1565c0;
-        }
-
-        .delete-btn {
-            background: #c62828;
-        }
-
-        .edit-btn {
-            background: #f59e0b;
-        }
-
-        label {
-            font-weight: 500;
-            margin-left: 6px;
-        }
-
-        #result {
-            margin-top: 12px;
-            font-weight: bold;
-            color: #374151;
-        }
+        body { font-family: Arial; margin: 40px; }
+        input, select, button { margin: 5px; padding: 6px; }
+        table { border-collapse: collapse; margin-top: 20px; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background-color: #f4f4f4; }
+        .edit-btn { background-color: orange; color: white; border: none; padding: 5px 10px; }
+        .delete-btn { background-color: red; color: white; border: none; padding: 5px 10px; }
+        .save-btn { background-color: green; color: white; border: none; padding: 6px 12px; }
+        canvas { margin-top: 40px; }
     </style>
-
 </head>
-
 <body>
 
-    <img src="/static/logo.png" class="logo">
+<h2>MOK Transport Sales Recording</h2>
 
-    <h2>Mok Transport Internal Sales System</h2>
+<form id="saleForm">
+    <input type="hidden" id="saleId">
+    <input type="date" id="date" required>
+    <input type="text" id="party" placeholder="Party Name (Kone, Otis...)" required>
+    <input type="number" id="amount" placeholder="Amount" required>
+    <select id="vat_enabled">
+        <option value="true">VAT Included</option>
+        <option value="false">No VAT</option>
+    </select>
+    <button type="submit" class="save-btn">Save Sale</button>
+</form>
 
-    <div class="card">
+<button onclick="exportExcel()">Export to Excel</button>
 
-        <form id="saleForm">
+<h3>Sales Records</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Party</th>
+            <th>Amount</th>
+            <th>VAT</th>
+            <th>Total</th>
+            <th>Profit</th>
+            <th>Edit</th>
+            <th>Delete</th>
+        </tr>
+    </thead>
+    <tbody id="salesTable"></tbody>
+</table>
 
-            <input type="hidden" id="edit_id">
+<h3>Monthly Profit Dashboard</h3>
+<canvas id="monthlyChart"></canvas>
 
-            Party:
-            <select id="party">
-                {% for p in parties %}
-                <option value="{{p}}">{{p}}</option>
-                {% endfor %}
-            </select>
+<h3>Profit by Party Dashboard</h3>
+<canvas id="partyChart"></canvas>
 
-            Supplier:
-            <select id="supplier">
-                {% for s in suppliers %}
-                <option value="{{s}}">{{s}}</option>
-                {% endfor %}
-            </select>
+<script>
+let monthlyChart;
+let partyChart;
 
-            <br><br>
+/* ================= LOAD SALES ================= */
+async function loadSales() {
+    const res = await fetch("/sales");
+    const data = await res.json();
 
-            Order No: <input id="order">
-            Invoice No: <input id="invoice">
-            Waybill No: <input id="waybill">
-            Date: <input type="date" id="date"><br><br>
+    const table = document.getElementById("salesTable");
+    table.innerHTML = "";
 
-            Supplier Cost: <input type="number" id="supplier_cost">
-            Client Charge: <input type="number" id="client_charge">
+    data.forEach(row => {
+        table.innerHTML += `
+            <tr>
+                <td>${row.date}</td>
+                <td>${row.party}</td>
+                <td>${row.amount}</td>
+                <td>${row.vat}</td>
+                <td>${row.total}</td>
+                <td>${row.profit}</td>
+                <td><button class="edit-btn" onclick="editSale(${row.id})">Edit</button></td>
+                <td><button class="delete-btn" onclick="deleteSale(${row.id})">Delete</button></td>
+            </tr>
+        `;
+    });
+}
 
-            <label>
-                <input type="checkbox" id="vatToggle" checked>
-                Apply VAT
-            </label>
+/* ================= LOAD MONTHLY DASHBOARD ================= */
+async function loadMonthlyDashboard() {
+    const res = await fetch("/dashboard-monthly");
+    const data = await res.json();
 
-            Payment Status:
-            <select id="paid_status">
-                <option value="Paid">Paid</option>
-                <option value="Unpaid">Unpaid</option>
-            </select>
+    const labels = data.map(d => d.month);
+    const profits = data.map(d => d.total_profit);
 
-            <br><br>
+    if (monthlyChart) monthlyChart.destroy();
 
-            <button type="submit">Generate Profit & Save</button>
-
-        </form>
-
-        <h3 id="result"></h3>
-
-    </div>
-
-    <div class="card">
-        <button onclick="window.location='/export-excel'">
-            Export Excel
-        </button>
-    </div>
-
-    <div class="card">
-        <h3>Sales Records</h3>
-        <table id="table"></table>
-    </div>
-
-    <div class="card">
-        <h3>Monthly Dashboard</h3>
-        <canvas id="monthlyChart"></canvas>
-    </div>
-
-    <script>
-
-        let chart = null;
-
-        async function loadSales() {
-            const res = await fetch("/sales");
-            const data = await res.json();
-
-            const table = document.getElementById("table");
-
-            table.innerHTML = `
-<tr>
-<th>ID</th><th>Party</th><th>Supplier</th><th>Order</th>
-<th>Invoice</th><th>Waybill</th><th>Status</th>
-<th>Date</th><th>Total</th><th>Profit</th>
-<th>Edit</th><th>Delete</th>
-</tr>`;
-
-            data.forEach(row => {
-                table.innerHTML += `<tr>
-<td>${row.id}</td>
-<td>${row.party}</td>
-<td>${row.supplier}</td>
-<td>${row.order_no}</td>
-<td>${row.invoice_no}</td>
-<td>${row.waybill}</td>
-<td>${row.paid_status}</td>
-<td>${row.sale_date}</td>
-<td>${row.total_invoice}</td>
-<td>${row.profit}</td>
-<td><button class="edit-btn" onclick="editSale(${row.id})">Edit</button></td>
-<td><button class="delete-btn" onclick="deleteSale(${row.id})">Delete</button></td>
-</tr>`;
-            });
+    const ctx = document.getElementById("monthlyChart").getContext("2d");
+    monthlyChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Monthly Profit",
+                data: profits
+            }]
         }
+    });
+}
 
-        async function editSale(id) {
+/* ================= LOAD PARTY DASHBOARD ================= */
+async function loadPartyDashboard() {
+    const res = await fetch("/dashboard-party");
+    const data = await res.json();
 
-            const res = await fetch("/sales");
-            const data = await res.json();
+    const labels = data.map(d => d.party);
+    const profits = data.map(d => d.total_profit);
 
-            const row = data.find(r => r.id == id);  // <-- double equals (important)
+    if (partyChart) partyChart.destroy();
 
-            if (!row) {
-                console.log("Row not found for id:", id);
-                return;
-            }
-
-            document.getElementById("edit_id").value = row.id;
-            document.getElementById("party").value = row.party;
-            document.getElementById("supplier").value = row.supplier;
-            document.getElementById("order").value = row.order_no;
-            document.getElementById("invoice").value = row.invoice_no;
-            document.getElementById("waybill").value = row.waybill;
-            document.getElementById("date").value = row.sale_date;
-            document.getElementById("supplier_cost").value = row.supplier_cost;
-            document.getElementById("client_charge").value = row.client_charge;
-            document.getElementById("paid_status").value = row.paid_status;
-
-            window.scrollTo({ top: 0, behavior: "smooth" });
+    const ctx = document.getElementById("partyChart").getContext("2d");
+    partyChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Profit by Party",
+                data: profits
+            }]
         }
+    });
+}
 
+/* ================= SAVE / UPDATE SALE ================= */
+document.getElementById("saleForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
 
-        async function deleteSale(id) {
-            if (!confirm("Delete this sale?")) return;
-            await fetch(`/delete-sale/${id}`, { method: "DELETE" });
-            loadSales();
-            loadMonthlyDashboard();
-        }
+    const id = document.getElementById("saleId").value;
+    const date = document.getElementById("date").value;
+    const party = document.getElementById("party").value;
+    const amount = document.getElementById("amount").value;
+    const vat_enabled = document.getElementById("vat_enabled").value;
 
-        async function loadMonthlyDashboard() {
-            const res = await fetch("/dashboard-monthly");
-            const data = await res.json();
-
-            const labels = data.map(d => d.month);
-            const profits = data.map(d => d.profit);
-
-            if (chart) chart.destroy();
-
-            chart = new Chart(document.getElementById("monthlyChart"), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: "Monthly Profit",
-                        data: profits
-                    }]
-                }
-            });
-        }
-
-        document.getElementById("saleForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
-
-            const vatEnabled = document.getElementById("vatToggle").checked;
-            const editId = document.getElementById("edit_id").value;
-
-            const sale = {
-                party: document.getElementById("party").value,
-                supplier: document.getElementById("supplier").value,
-                order_no: document.getElementById("order").value,
-                invoice_no: document.getElementById("invoice").value,
-                waybill: document.getElementById("waybill").value,
-                sale_date: document.getElementById("date").value,
-                supplier_cost: parseFloat(document.getElementById("supplier_cost").value || 0),
-                client_charge: parseFloat(document.getElementById("client_charge").value || 0),
-                paid_status: document.getElementById("paid_status").value
-            };
-
-            let url = `/record-sale?vat_enabled=${vatEnabled}`;
-            let method = "POST";
-
-            if (editId) {
-                url = `/update-sale/${editId}?vat_enabled=${vatEnabled}`;
-                method = "PUT";
-            }
-
-            const res = await fetch(url, {
-                method: method,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(sale)
-            });
-
-            const result = await res.json();
-
-            document.getElementById("result").innerText =
-                `VAT: ${result.vat} | Total: ${result.total_invoice} | Profit: ${result.profit}`;
-
-            document.getElementById("saleForm").reset();
-            document.getElementById("edit_id").value = "";
-
-            loadSales();
-            loadMonthlyDashboard();
+    if (id) {
+        await fetch(`/update-sale/${id}?vat_enabled=${vat_enabled}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date, party, amount })
         });
+    } else {
+        await fetch(`/record-sale?vat_enabled=${vat_enabled}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date, party, amount })
+        });
+    }
 
+    document.getElementById("saleForm").reset();
+    document.getElementById("saleId").value = "";
 
-        loadSales();
-        loadMonthlyDashboard();
+    loadSales();
+    loadMonthlyDashboard();
+    loadPartyDashboard();
+});
 
-    </script>
+/* ================= EDIT SALE ================= */
+async function editSale(id) {
+    const res = await fetch("/sales");
+    const data = await res.json();
+    const row = data.find(r => r.id == id);
+
+    document.getElementById("saleId").value = row.id;
+    document.getElementById("date").value = row.date;
+    document.getElementById("party").value = row.party;
+    document.getElementById("amount").value = row.amount;
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+/* ================= DELETE SALE ================= */
+async function deleteSale(id) {
+    await fetch(`/delete-sale/${id}`, { method: "DELETE" });
+
+    loadSales();
+    loadMonthlyDashboard();
+    loadPartyDashboard();
+}
+
+/* ================= EXPORT ================= */
+function exportExcel() {
+    window.location.href = "/export-excel";
+}
+
+/* ================= INITIAL LOAD ================= */
+loadSales();
+loadMonthlyDashboard();
+loadPartyDashboard();
+
+</script>
 
 </body>
-
 </html>
 
