@@ -3,15 +3,16 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import pandas as pd
 import os
 import uvicorn
 import smtplib
 from email.message import EmailMessage
+from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB = os.path.join(BASE_DIR, "sales.db")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
@@ -26,34 +27,34 @@ VAT_RATE = 0.15
 # ---------- DATABASE ----------
 
 def get_conn():
-    conn = sqlite3.connect(DB)
-    conn.row_factory = sqlite3.Row
-    return conn
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise Exception("DATABASE_URL not set in environment variables")
+    return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
 
 
 def init_db():
     conn = get_conn()
-    c = conn.cursor()
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS sales (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        party TEXT,
-        supplier TEXT,
-        order_no TEXT,
-        invoice_no TEXT,
-        waybill TEXT,
-        sale_date TEXT,
-        supplier_cost REAL,
-        client_charge REAL,
-        vat REAL,
-        total_invoice REAL,
-        profit REAL,
-        paid_status TEXT
-    )
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS sales (
+            id SERIAL PRIMARY KEY,
+            party TEXT,
+            supplier TEXT,
+            order_no TEXT,
+            invoice_no TEXT,
+            waybill TEXT,
+            sale_date DATE,
+            supplier_cost NUMERIC,
+            client_charge NUMERIC,
+            vat NUMERIC,
+            total_invoice NUMERIC,
+            profit NUMERIC,
+            paid_status TEXT
+        )
     """)
-
     conn.commit()
+    cur.close()
     conn.close()
 
 
@@ -106,14 +107,14 @@ def record_sale(sale: Sale, vat_enabled: bool = Query(True)):
     profit = sale.client_charge - sale.supplier_cost
 
     conn = get_conn()
-    c = conn.cursor()
+    cur = conn.cursor()
 
-    c.execute("""
-    INSERT INTO sales (
-        party, supplier, order_no, invoice_no, waybill, sale_date,
-        supplier_cost, client_charge, vat, total_invoice, profit, paid_status
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    cur.execute("""
+        INSERT INTO sales (
+            party, supplier, order_no, invoice_no, waybill, sale_date,
+            supplier_cost, client_charge, vat, total_invoice, profit, paid_status
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, (
         sale.party,
         sale.supplier,
@@ -130,6 +131,7 @@ def record_sale(sale: Sale, vat_enabled: bool = Query(True)):
     ))
 
     conn.commit()
+    cur.close()
     conn.close()
 
     return {
@@ -144,9 +146,12 @@ def record_sale(sale: Sale, vat_enabled: bool = Query(True)):
 @app.get("/sales")
 def get_sales():
     conn = get_conn()
-    rows = conn.execute("SELECT * FROM sales ORDER BY id DESC").fetchall()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM sales ORDER BY id DESC")
+    rows = cur.fetchall()
+    cur.close()
     conn.close()
-    return [dict(row) for row in rows]
+    return rows
 
 
 # ---------- DELETE ----------
@@ -154,11 +159,12 @@ def get_sales():
 @app.delete("/delete-sale/{sale_id}")
 def delete_sale(sale_id: int):
     conn = get_conn()
-    conn.execute("DELETE FROM sales WHERE id=?", (sale_id,))
+    cur = conn.cursor()
+    cur.execute("DELETE FROM sales WHERE id=%s", (sale_id,))
     conn.commit()
+    cur.close()
     conn.close()
     return {"status": "deleted"}
-
 
 
 # ---------- UPDATE ----------
@@ -171,21 +177,23 @@ def update_sale(sale_id: int, sale: Sale, vat_enabled: bool = Query(True)):
     profit = sale.client_charge - sale.supplier_cost
 
     conn = get_conn()
-    conn.execute("""
+    cur = conn.cursor()
+
+    cur.execute("""
         UPDATE sales SET
-            party=?,
-            supplier=?,
-            order_no=?,
-            invoice_no=?,
-            waybill=?,
-            sale_date=?,
-            supplier_cost=?,
-            client_charge=?,
-            vat=?,
-            total_invoice=?,
-            profit=?,
-            paid_status=?
-        WHERE id=?
+            party=%s,
+            supplier=%s,
+            order_no=%s,
+            invoice_no=%s,
+            waybill=%s,
+            sale_date=%s,
+            supplier_cost=%s,
+            client_charge=%s,
+            vat=%s,
+            total_invoice=%s,
+            profit=%s,
+            paid_status=%s
+        WHERE id=%s
     """, (
         sale.party,
         sale.supplier,
@@ -203,6 +211,7 @@ def update_sale(sale_id: int, sale: Sale, vat_enabled: bool = Query(True)):
     ))
 
     conn.commit()
+    cur.close()
     conn.close()
 
     return {
@@ -211,28 +220,29 @@ def update_sale(sale_id: int, sale: Sale, vat_enabled: bool = Query(True)):
         "profit": round(profit, 2)
     }
 
-# ---------- EXPORT ----------
+
+# ---------- EXPORT EXCEL ----------
 
 @app.get("/export-excel")
 def export_excel():
-
     conn = get_conn()
-    df = pd.read_sql_query("SELECT * FROM sales", conn)
+    df = pd.read_sql("SELECT * FROM sales", conn)
     conn.close()
+
+    if df.empty:
+        return {"error": "No data"}
 
     path = os.path.join(BASE_DIR, "sales_export.xlsx")
     df.to_excel(path, index=False)
-
     return FileResponse(path, filename="sales_export.xlsx")
 
 
-# ---------- DASHBOARD ----------
+# ---------- DASHBOARD MONTHLY ----------
 
 @app.get("/dashboard-monthly")
-def dashboard():
-
+def dashboard_monthly():
     conn = get_conn()
-    df = pd.read_sql_query("SELECT * FROM sales", conn)
+    df = pd.read_sql("SELECT * FROM sales", conn)
     conn.close()
 
     if df.empty:
@@ -242,7 +252,6 @@ def dashboard():
     df["month"] = df["sale_date"].dt.strftime("%Y-%m")
 
     monthly = df.groupby("month")["profit"].sum().reset_index()
-
     return monthly.to_dict(orient="records")
 
 
@@ -250,23 +259,23 @@ def dashboard():
 
 @app.get("/dashboard-by-party")
 def dashboard_by_party():
-
     conn = get_conn()
-    df = pd.read_sql_query("SELECT * FROM sales", conn)
+    df = pd.read_sql("SELECT * FROM sales", conn)
     conn.close()
 
     if df.empty:
         return []
 
     party_profit = df.groupby("party")["profit"].sum().reset_index()
-
     return party_profit.to_dict(orient="records")
+
+
+# ---------- MONTHLY REPORT JSON ----------
 
 @app.get("/monthly-report")
 def monthly_report(month: str):
-
     conn = get_conn()
-    df = pd.read_sql_query("SELECT * FROM sales", conn)
+    df = pd.read_sql("SELECT * FROM sales", conn)
     conn.close()
 
     if df.empty:
@@ -280,45 +289,53 @@ def monthly_report(month: str):
     if df_month.empty:
         return {}
 
-    total_sales = df_month["client_charge"].sum()
-    total_cost = df_month["supplier_cost"].sum()
-    total_profit = df_month["profit"].sum()
-
-    paid_total = df_month[df_month["paid_status"] == "Paid"]["client_charge"].sum()
-    outstanding_total = df_month[df_month["paid_status"] != "Paid"]["client_charge"].sum()
-
-    party_profit = df_month.groupby("party")["profit"].sum().reset_index()
-
     return {
         "month": month,
-        "total_sales": round(total_sales, 2),
-        "total_cost": round(total_cost, 2),
-        "total_profit": round(total_profit, 2),
-        "paid_total": round(paid_total, 2),
-        "outstanding_total": round(outstanding_total, 2),
-        "profit_by_party": party_profit.to_dict(orient="records")
+        "total_sales": float(df_month["client_charge"].sum()),
+        "total_cost": float(df_month["supplier_cost"].sum()),
+        "total_profit": float(df_month["profit"].sum()),
+        "paid_total": float(df_month[df_month["paid_status"] == "Paid"]["client_charge"].sum()),
+        "outstanding_total": float(df_month[df_month["paid_status"] != "Paid"]["client_charge"].sum()),
+        "profit_by_party": df_month.groupby("party")["profit"].sum().reset_index().to_dict(orient="records")
     }
 
 
-@app.get("/export-monthly-report")
-def export_monthly_report(month: str):
+# ---------- SEND MONTHLY REPORT EMAIL ----------
 
-    conn = get_conn()
-    df = pd.read_sql_query("SELECT * FROM sales", conn)
-    conn.close()
+@app.post("/send-monthly-report")
+def send_monthly_report(month: str, recipient: str):
 
-    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
-    df["month"] = df["sale_date"].dt.strftime("%Y-%m")
+    report = monthly_report(month)
 
-    df_month = df[df["month"] == month]
+    if not report:
+        return {"error": "No data for selected month"}
 
-    if df_month.empty:
-        return {"error": "No data"}
+    body = f"""
+Mok Transport Monthly Report - {month}
 
-    path = os.path.join(BASE_DIR, f"monthly_report_{month}.xlsx")
-    df_month.to_excel(path, index=False)
+Total Sales: {report['total_sales']}
+Total Cost: {report['total_cost']}
+Total Profit: {report['total_profit']}
+Paid Total: {report['paid_total']}
+Outstanding Total: {report['outstanding_total']}
+"""
 
-    return FileResponse(path, filename=f"monthly_report_{month}.xlsx")
+    msg = EmailMessage()
+    msg["Subject"] = f"Mok Transport Monthly Report - {month}"
+    msg["From"] = os.getenv("EMAIL_USER")
+    msg["To"] = recipient
+    msg.set_content(body)
+
+    try:
+        with smtplib.SMTP("smtp.office365.com", 587) as server:
+            server.starttls()
+            server.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
+            server.send_message(msg)
+
+        return {"message": "Report sent successfully"}
+
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # ---------- START ----------
@@ -327,4 +344,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
 
-
+    
