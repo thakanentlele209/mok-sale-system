@@ -7,6 +7,8 @@ import sqlite3
 import pandas as pd
 import os
 import uvicorn
+import smtplib
+from email.message import EmailMessage
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(BASE_DIR, "sales.db")
@@ -259,6 +261,64 @@ def dashboard_by_party():
     party_profit = df.groupby("party")["profit"].sum().reset_index()
 
     return party_profit.to_dict(orient="records")
+
+@app.get("/monthly-report")
+def monthly_report(month: str):
+
+    conn = get_conn()
+    df = pd.read_sql_query("SELECT * FROM sales", conn)
+    conn.close()
+
+    if df.empty:
+        return {}
+
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
+    df["month"] = df["sale_date"].dt.strftime("%Y-%m")
+
+    df_month = df[df["month"] == month]
+
+    if df_month.empty:
+        return {}
+
+    total_sales = df_month["client_charge"].sum()
+    total_cost = df_month["supplier_cost"].sum()
+    total_profit = df_month["profit"].sum()
+
+    paid_total = df_month[df_month["paid_status"] == "Paid"]["client_charge"].sum()
+    outstanding_total = df_month[df_month["paid_status"] != "Paid"]["client_charge"].sum()
+
+    party_profit = df_month.groupby("party")["profit"].sum().reset_index()
+
+    return {
+        "month": month,
+        "total_sales": round(total_sales, 2),
+        "total_cost": round(total_cost, 2),
+        "total_profit": round(total_profit, 2),
+        "paid_total": round(paid_total, 2),
+        "outstanding_total": round(outstanding_total, 2),
+        "profit_by_party": party_profit.to_dict(orient="records")
+    }
+
+
+@app.get("/export-monthly-report")
+def export_monthly_report(month: str):
+
+    conn = get_conn()
+    df = pd.read_sql_query("SELECT * FROM sales", conn)
+    conn.close()
+
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
+    df["month"] = df["sale_date"].dt.strftime("%Y-%m")
+
+    df_month = df[df["month"] == month]
+
+    if df_month.empty:
+        return {"error": "No data"}
+
+    path = os.path.join(BASE_DIR, f"monthly_report_{month}.xlsx")
+    df_month.to_excel(path, index=False)
+
+    return FileResponse(path, filename=f"monthly_report_{month}.xlsx")
 
 
 # ---------- START ----------

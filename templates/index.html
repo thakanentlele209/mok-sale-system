@@ -170,6 +170,10 @@
         <canvas id="monthlyChart"></canvas>
     </div>
 
+    <input type="month" id="reportMonth">
+    <input type="email" id="reportEmail" placeholder="Recipient Email">
+    <button onclick="sendReport()">Send Monthly Report</button>
+
     <div class="card">
         <h3>Profit by Party</h3>
         <canvas id="partyChart"></canvas>
@@ -339,6 +343,21 @@
 
     </script>
 
+    <script>
+        async function sendReport() {
+            const month = document.getElementById("reportMonth").value;
+            const email = document.getElementById("reportEmail").value;
+
+            const response = await fetch(`/send-monthly-report?month=${month}&recipient=${email}`, {
+                method: "POST"
+            });
+
+            const data = await response.json();
+            alert(data.message || data.error);
+        }
+    </script>
+
 </body>
 
 </html>
+
