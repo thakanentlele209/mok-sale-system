@@ -81,7 +81,7 @@ PARTIES = [
     "KONE","OTIS","ALICEWEAR","SPIRAX SARCO","TRACLO PTY LTD",
     "TRACLO INTL","TRACLO INTER","MAXIONWHEEL","MINTEK",
     "YMS TRADING DISTRIBUTORS","WALK-IN","WEG","SULZER",
-    "CUSTOMS","USAFETY","SILVER","MAXION","Mahniglory and Saama PTY LTD"
+    "CUSTOMS","USAFETY","SILVER","MAXION","Mahniglory and Saama PTY LTD","UPPER LEVEL LIFTS PTY LTD","Power Elevators"
 ]
 
 SUPPLIERS = ["DHL", "JKJ", "MOK"]
@@ -345,3 +345,10 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=port)
 
     
+
+
+
+
+
+
+
