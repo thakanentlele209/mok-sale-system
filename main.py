@@ -232,7 +232,55 @@ def update_sale(sale_id:int, sale:Sale, vat_enabled: bool = Query(True)):
     }
 
 
+# ---------- LOCK SALE FOR EDIT ----------
+
+@app.post("/lock-sale/{sale_id}")
+def lock_sale(sale_id: int):
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE sales
+        SET waybill = waybill
+        WHERE id = %s
+        RETURNING id
+    """, (sale_id,))
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if not row:
+        return {"error": "Sale not found"}
+
+    return {"status": "locked"}
 # ---------- EXPORT EXCEL ----------
+
+# ---------- ACCOUNTS RECEIVABLE DASHBOARD ----------
+
+@app.get("/accounts-receivable")
+def accounts_receivable():
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            SUM(CASE WHEN paid_status='Paid' THEN client_charge ELSE 0 END) as paid_total,
+            SUM(CASE WHEN paid_status!='Paid' THEN client_charge ELSE 0 END) as outstanding_total
+        FROM sales
+    """)
+
+    result = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return result
+
+
 
 @app.get("/export-excel")
 def export_excel():
@@ -334,6 +382,75 @@ def monthly_report(month:str):
         "profit_by_party": df.groupby("party")["profit"].sum().reset_index().to_dict(orient="records")
     }
 
+@app.get("/dashboard-profit-trend")
+def profit_trend():
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            TO_CHAR(sale_date,'YYYY-MM') as month,
+            SUM(profit) as profit
+        FROM sales
+        GROUP BY month
+        ORDER BY month
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
+
+@app.get("/dashboard-supplier-performance")
+def supplier_performance():
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            supplier,
+            SUM(profit) as profit
+        FROM sales
+        GROUP BY supplier
+        ORDER BY profit DESC
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
+
+@app.get("/dashboard-top-clients")
+def top_clients():
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            party,
+            SUM(client_charge) as revenue
+        FROM sales
+        GROUP BY party
+        ORDER BY revenue DESC
+        LIMIT 10
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
 
 # ---------- EMAIL REPORT ----------
 
@@ -393,6 +510,8 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port
     )
+
+
 
 
 
