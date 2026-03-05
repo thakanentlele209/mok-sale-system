@@ -38,8 +38,14 @@ border-left:6px solid #0d47a1;
 .dashboard-grid{
 display:grid;
 grid-template-columns:repeat(2,1fr);
-gap:25px;
+gap:20px;
 }
+
+.dashboard-grid canvas{
+height:280px !important;
+max-height:280px;
+}
+
 
 input,select{
 padding:8px;
@@ -409,6 +415,52 @@ loadPartyDashboard()
 loadReceivables()
 loadSupplierPerformance()
 loadTopClients()
+
+async function editSale(id){
+
+const res = await fetch("/sales")
+const data = await res.json()
+
+const row = data.find(r => r.id == id)
+
+if(!row){
+alert("Sale not found")
+return
+}
+
+document.getElementById("edit_id").value = row.id
+document.getElementById("party").value = row.party
+document.getElementById("supplier").value = row.supplier
+document.getElementById("order").value = row.order_no
+document.getElementById("invoice").value = row.invoice_no
+document.getElementById("waybill").value = row.waybill
+document.getElementById("date").value = row.sale_date
+document.getElementById("supplier_cost").value = row.supplier_cost
+document.getElementById("client_charge").value = row.client_charge
+document.getElementById("paid_status").value = row.paid_status
+
+window.scrollTo({top:0,behavior:"smooth"})
+
+}
+
+async function deleteSale(id){
+
+if(!confirm("Delete this sale?")) return
+
+await fetch(`/delete-sale/${id}`,{
+method:"DELETE"
+})
+
+loadSales()
+loadMonthlyDashboard()
+loadPartyDashboard()
+loadReceivables()
+loadSupplierPerformance()
+loadTopClients()
+
+}
+
+
 
 </script>
 
