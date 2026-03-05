@@ -369,6 +369,19 @@ data:{labels:labels,datasets:[{label:"Top Client Revenue",data:revenue}]}
 
 }
 
+function formatWaybills(waybill) {
+
+    if (!waybill) return ""
+
+    return waybill
+        .toString()
+        .split(/[, ]+/)
+        .map(w => `<div>${w}</div>`)
+        .join("")
+
+}
+
+
 async function loadSales(){
 
 const res=await fetch("/sales")
@@ -386,7 +399,7 @@ tbody.innerHTML+=`
 <td>${row.supplier}</td>
 <td>${row.order_no}</td>
 <td>${row.invoice_no}</td>
-<td>${row.waybill}</td>
+<td>${formatWaybills(row.waybill)}</td>
 <td>${row.paid_status}</td>
 <td>${row.sale_date}</td>
 <td>${row.total_invoice}</td>
