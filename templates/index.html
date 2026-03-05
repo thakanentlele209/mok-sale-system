@@ -1,226 +1,339 @@
 <!DOCTYPE html>
+
 <html>
 
 <head>
-    <title>Mok Transport Internal Sales System</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Mok Transport Internal Sales System</title>
 
-    <style>
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            margin: 40px;
-            background: #eef2f6;
-            color: #1f2933;
-        }
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-        h2 {
-            color: #0d47a1;
-            margin-bottom: 8px;
-        }
+<style>
 
-        .logo {
-            width: 180px;
-            margin-bottom: 12px;
-        }
+body{
+font-family:Arial, Helvetica, sans-serif;
+margin:40px;
+background:#eef2f6;
+color:#1f2933;
+}
 
-        .card {
-            background: white;
-            padding: 22px;
-            border-radius: 12px;
-            margin-bottom: 22px;
-            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
-            border-left: 6px solid #0d47a1;
-        }
+h2{
+color:#0d47a1;
+margin-bottom:8px;
+}
 
-        input,
-        select {
-            padding: 8px;
-            margin: 6px 4px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            background: #f9fafb;
-        }
+.logo{
+width:180px;
+margin-bottom:12px;
+}
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-        }
+.card{
+background:white;
+padding:22px;
+border-radius:12px;
+margin-bottom:22px;
+box-shadow:0 6px 14px rgba(0,0,0,0.08);
+border-left:6px solid #0d47a1;
+}
 
-        th,
-        td {
-            border: 1px solid #e5e7eb;
-            padding: 10px;
-            text-align: left;
-        }
+.dashboard-grid{
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:25px;
+}
 
-        th {
-            background: #0d47a1;
-            color: white;
-            font-weight: bold;
-        }
+input,select{
+padding:8px;
+margin:6px 4px;
+border:1px solid #cbd5e1;
+border-radius:6px;
+background:#f9fafb;
+}
 
-        button {
-            padding: 10px 16px;
-            cursor: pointer;
-            border: none;
-            border-radius: 6px;
-            background: #0d47a1;
-            color: white;
-            font-weight: bold;
-            transition: 0.2s ease;
-        }
+table{
+width:100%;
+border-collapse:collapse;
+background:white;
+}
 
-        button:hover {
-            background: #1565c0;
-        }
+th,td{
+border:1px solid #e5e7eb;
+padding:10px;
+text-align:left;
+}
 
-        .delete-btn {
-            background: #c62828;
-        }
+th{
+background:#0d47a1;
+color:white;
+font-weight:bold;
+}
 
-        .edit-btn {
-            background: #f59e0b;
-        }
+button{
+padding:10px 16px;
+cursor:pointer;
+border:none;
+border-radius:6px;
+background:#0d47a1;
+color:white;
+font-weight:bold;
+transition:0.2s ease;
+}
 
-        label {
-            font-weight: 500;
-            margin-left: 6px;
-        }
+button:hover{
+background:#1565c0;
+}
 
-        #result {
-            margin-top: 12px;
-            font-weight: bold;
-            color: #374151;
-        }
-    </style>
+.delete-btn{
+background:#c62828;
+}
+
+.edit-btn{
+background:#f59e0b;
+}
+
+canvas{
+background:white;
+padding:15px;
+border-radius:10px;
+}
+
+</style>
 
 </head>
 
 <body>
 
-    <img src="/static/logo.png" class="logo">
+<img src="/static/logo.png" class="logo">
 
-    <h2>Mok Transport Internal Sales System</h2>
+<h2>Mok Transport Internal Sales System</h2>
 
-    <div class="card">
+<div class="card">
 
-        <form id="saleForm">
+<form id="saleForm">
 
-            <input type="hidden" id="edit_id">
+<input type="hidden" id="edit_id">
 
-            Party:
-            <select id="party">
-                {% for p in parties %}
-                <option value="{{p}}">{{p}}</option>
-                {% endfor %}
-            </select>
+Party: <select id="party">
+{% for p in parties %}
 
-            Supplier:
-            <select id="supplier">
-                {% for s in suppliers %}
-                <option value="{{s}}">{{s}}</option>
-                {% endfor %}
-            </select>
+<option value="{{p}}">{{p}}</option>
+{% endfor %}
+</select>
 
-            <br><br>
+Supplier: <select id="supplier">
+{% for s in suppliers %}
 
-            Order No: <input id="order">
-            Invoice No: <input id="invoice">
-            Waybill No: <input id="waybill">
-            Date: <input type="date" id="date"><br><br>
+<option value="{{s}}">{{s}}</option>
+{% endfor %}
+</select>
 
-            Supplier Cost: <input type="number" id="supplier_cost">
-            Client Charge: <input type="number" id="client_charge">
+<br><br>
 
-            <label>
-                <input type="checkbox" id="vatToggle" checked>
-                Apply VAT
-            </label>
+Order No: <input id="order">
+Invoice No: <input id="invoice">
+Waybill No: <input id="waybill">
+Date: <input type="date" id="date"><br><br>
 
-            Payment Status:
-            <select id="paid_status">
-                <option value="Paid">Paid</option>
-                <option value="Unpaid">Unpaid</option>
-            </select>
+Supplier Cost: <input type="number" id="supplier_cost">
+Client Charge: <input type="number" id="client_charge">
 
-            <br><br>
+<label>
+<input type="checkbox" id="vatToggle" checked>
+Apply VAT
+</label>
 
-            <button type="submit">Generate Profit & Save</button>
+Payment Status: <select id="paid_status">
 
-        </form>
+<option value="Paid">Paid</option>
+<option value="Unpaid">Unpaid</option>
+</select>
 
-        <h3 id="result"></h3>
+<br><br>
 
-    </div>
+<button type="submit">Generate Profit & Save</button>
 
-    <div class="card">
-        <button onclick="window.location='/export-excel'">
-            Export Excel
-        </button>
-    </div>
+</form>
 
-    <div class="card">
-        <h3>Sales Records</h3>
-        <table id="table"></table>
-    </div>
+<h3 id="result"></h3>
 
-    <div class="card">
-        <h3>Monthly Dashboard</h3>
-        <canvas id="monthlyChart"></canvas>
-    </div>
+</div>
 
-    <input type="month" id="reportMonth">
-    <input type="email" id="reportEmail" placeholder="Recipient Email">
-    <button onclick="sendReport()">Send Monthly Report</button>
+<div class="card">
+<button onclick="window.location='/export-excel'">
+Export Excel
+</button>
+</div>
 
-    <div class="card">
-        <h3>Profit by Party</h3>
-        <canvas id="partyChart"></canvas>
-    </div>
+<div class="card">
+<h3>Sales Records</h3>
+<table id="table"></table>
+</div>
 
-    <script>
+<div class="card">
+<h3>Financial Dashboard</h3>
 
-        let chart = null;
-        let partyChart = null;
+<div class="dashboard-grid">
 
-        async function loadPartyDashboard() {
-            const res = await fetch("/dashboard-by-party");
-            const data = await res.json();
+<canvas id="monthlyChart"></canvas>
 
-            const labels = data.map(d => d.party);
-            const profits = data.map(d => d.profit);
+<canvas id="partyChart"></canvas>
 
-            if (partyChart) partyChart.destroy();
+<canvas id="receivableChart"></canvas>
 
-            partyChart = new Chart(document.getElementById("partyChart"), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: "Total Profit by Party",
-                        data: profits
-                    }]
-                }
-            });
-        }
+<canvas id="supplierChart"></canvas>
 
-        async function loadSales() {
-            const res = await fetch("/sales");
-            const data = await res.json();
+<canvas id="clientChart"></canvas>
 
-            const table = document.getElementById("table");
+</div>
 
-            table.innerHTML = `
-<tr>
+</div>
+
+<input type="month" id="reportMonth">
+<input type="email" id="reportEmail" placeholder="Recipient Email">
+<button onclick="sendReport()">Send Monthly Report</button>
+
+<script>
+
+let monthlyChart=null
+let partyChart=null
+let receivableChart=null
+let supplierChart=null
+let clientChart=null
+
+
+async function loadMonthlyDashboard(){
+
+const res=await fetch("/dashboard-monthly")
+const data=await res.json()
+
+const labels=data.map(d=>d.month)
+const profits=data.map(d=>d.profit)
+
+if(monthlyChart) monthlyChart.destroy()
+
+monthlyChart=new Chart(document.getElementById("monthlyChart"),{
+type:'bar',
+data:{
+labels:labels,
+datasets:[{
+label:"Monthly Profit",
+data:profits
+}]
+}
+})
+
+}
+
+
+async function loadPartyDashboard(){
+
+const res=await fetch("/dashboard-by-party")
+const data=await res.json()
+
+const labels=data.map(d=>d.party)
+const profits=data.map(d=>d.profit)
+
+if(partyChart) partyChart.destroy()
+
+partyChart=new Chart(document.getElementById("partyChart"),{
+type:'bar',
+data:{
+labels:labels,
+datasets:[{
+label:"Profit by Party",
+data:profits
+}]
+}
+})
+
+}
+
+
+async function loadReceivables(){
+
+const res=await fetch("/accounts-receivable")
+const data=await res.json()
+
+if(receivableChart) receivableChart.destroy()
+
+receivableChart=new Chart(document.getElementById("receivableChart"),{
+type:'doughnut',
+data:{
+labels:["Paid","Outstanding"],
+datasets:[{
+data:[
+data.paid_total,
+data.outstanding_total
+]
+}]
+}
+})
+
+}
+
+
+async function loadSupplierPerformance(){
+
+const res=await fetch("/dashboard-supplier-performance")
+const data=await res.json()
+
+const labels=data.map(d=>d.supplier)
+const profits=data.map(d=>d.profit)
+
+if(supplierChart) supplierChart.destroy()
+
+supplierChart=new Chart(document.getElementById("supplierChart"),{
+type:'pie',
+data:{
+labels:labels,
+datasets:[{
+data:profits
+}]
+}
+})
+
+}
+
+
+async function loadTopClients(){
+
+const res=await fetch("/dashboard-top-clients")
+const data=await res.json()
+
+const labels=data.map(d=>d.party)
+const revenue=data.map(d=>d.revenue)
+
+if(clientChart) clientChart.destroy()
+
+clientChart=new Chart(document.getElementById("clientChart"),{
+type:'bar',
+data:{
+labels:labels,
+datasets:[{
+label:"Top Client Revenue",
+data:revenue
+}]
+}
+})
+
+}
+
+
+async function loadSales(){
+
+const res=await fetch("/sales")
+const data=await res.json()
+
+const table=document.getElementById("table")
+
+table.innerHTML=`<tr>
 <th>ID</th><th>Party</th><th>Supplier</th><th>Order</th>
 <th>Invoice</th><th>Waybill</th><th>Status</th>
 <th>Date</th><th>Total</th><th>Profit</th>
 <th>Edit</th><th>Delete</th>
-</tr>`;
+</tr>`
 
-            data.forEach(row => {
-                table.innerHTML += `<tr>
+data.forEach(row=>{
+table.innerHTML+=`<tr>
 <td>${row.id}</td>
 <td>${row.party}</td>
 <td>${row.supplier}</td>
@@ -233,131 +346,92 @@
 <td>${row.profit}</td>
 <td><button class="edit-btn" onclick="editSale(${row.id})">Edit</button></td>
 <td><button class="delete-btn" onclick="deleteSale(${row.id})">Delete</button></td>
-</tr>`;
-            });
-        }
+</tr>`
+})
 
-        async function editSale(id) {
-
-            const res = await fetch("/sales");
-            const data = await res.json();
-
-            const row = data.find(r => r.id == id);  // <-- double equals (important)
-
-            if (!row) {
-                console.log("Row not found for id:", id);
-                return;
-            }
-
-            document.getElementById("edit_id").value = row.id;
-            document.getElementById("party").value = row.party;
-            document.getElementById("supplier").value = row.supplier;
-            document.getElementById("order").value = row.order_no;
-            document.getElementById("invoice").value = row.invoice_no;
-            document.getElementById("waybill").value = row.waybill;
-            document.getElementById("date").value = row.sale_date;
-            document.getElementById("supplier_cost").value = row.supplier_cost;
-            document.getElementById("client_charge").value = row.client_charge;
-            document.getElementById("paid_status").value = row.paid_status;
-
-            window.scrollTo({ top: 0, behavior: "smooth" });
-        }
+}
 
 
-        async function deleteSale(id) {
-            if (!confirm("Delete this sale?")) return;
-            await fetch(`/delete-sale/${id}`, { method: "DELETE" });
-            loadSales();
-            loadMonthlyDashboard();
-        }
+document.getElementById("saleForm").addEventListener("submit",async(e)=>{
 
-        async function loadMonthlyDashboard() {
-            const res = await fetch("/dashboard-monthly");
-            const data = await res.json();
+e.preventDefault()
 
-            const labels = data.map(d => d.month);
-            const profits = data.map(d => d.profit);
+const vatEnabled=document.getElementById("vatToggle").checked
+const editId=document.getElementById("edit_id").value
 
-            if (chart) chart.destroy();
+const sale={
+party:document.getElementById("party").value,
+supplier:document.getElementById("supplier").value,
+order_no:document.getElementById("order").value,
+invoice_no:document.getElementById("invoice").value,
+waybill:document.getElementById("waybill").value,
+sale_date:document.getElementById("date").value,
+supplier_cost:parseFloat(document.getElementById("supplier_cost").value||0),
+client_charge:parseFloat(document.getElementById("client_charge").value||0),
+paid_status:document.getElementById("paid_status").value
+}
 
-            chart = new Chart(document.getElementById("monthlyChart"), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: "Monthly Profit",
-                        data: profits
-                    }]
-                }
-            });
-        }
+let url=`/record-sale?vat_enabled=${vatEnabled}`
+let method="POST"
 
-        document.getElementById("saleForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
+if(editId){
+url=`/update-sale/${editId}?vat_enabled=${vatEnabled}`
+method="PUT"
+}
 
-            const vatEnabled = document.getElementById("vatToggle").checked;
-            const editId = document.getElementById("edit_id").value;
+const res=await fetch(url,{
+method:method,
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify(sale)
+})
 
-            const sale = {
-                party: document.getElementById("party").value,
-                supplier: document.getElementById("supplier").value,
-                order_no: document.getElementById("order").value,
-                invoice_no: document.getElementById("invoice").value,
-                waybill: document.getElementById("waybill").value,
-                sale_date: document.getElementById("date").value,
-                supplier_cost: parseFloat(document.getElementById("supplier_cost").value || 0),
-                client_charge: parseFloat(document.getElementById("client_charge").value || 0),
-                paid_status: document.getElementById("paid_status").value
-            };
+const result=await res.json()
 
-            let url = `/record-sale?vat_enabled=${vatEnabled}`;
-            let method = "POST";
+document.getElementById("result").innerText=
+`VAT: ${result.vat} | Total: ${result.total_invoice} | Profit: ${result.profit}`
 
-            if (editId) {
-                url = `/update-sale/${editId}?vat_enabled=${vatEnabled}`;
-                method = "PUT";
-            }
+document.getElementById("saleForm").reset()
+document.getElementById("edit_id").value=""
 
-            const res = await fetch(url, {
-                method: method,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(sale)
-            });
+loadSales()
+loadMonthlyDashboard()
+loadPartyDashboard()
+loadReceivables()
+loadSupplierPerformance()
+loadTopClients()
 
-            const result = await res.json();
-
-            document.getElementById("result").innerText =
-                `VAT: ${result.vat} | Total: ${result.total_invoice} | Profit: ${result.profit}`;
-
-            document.getElementById("saleForm").reset();
-            document.getElementById("edit_id").value = "";
-
-            loadSales();
-            loadMonthlyDashboard();
-        });
+})
 
 
-        loadSales();
-        loadMonthlyDashboard();
-        loadPartyDashboard();
+loadSales()
+loadMonthlyDashboard()
+loadPartyDashboard()
+loadReceivables()
+loadSupplierPerformance()
+loadTopClients()
 
-    </script>
+</script>
 
-    <script>
-        async function sendReport() {
-            const month = document.getElementById("reportMonth").value;
-            const email = document.getElementById("reportEmail").value;
+<script>
 
-            const response = await fetch(`/send-monthly-report?month=${month}&recipient=${email}`, {
-                method: "POST"
-            });
+async function sendReport(){
 
-            const data = await response.json();
-            alert(data.message || data.error);
-        }
-    </script>
+const month=document.getElementById("reportMonth").value
+const email=document.getElementById("reportEmail").value
+
+const response=await fetch(`/send-monthly-report?month=${month}&recipient=${email}`,{
+method:"POST"
+})
+
+const data=await response.json()
+
+alert(data.message||data.error)
+
+}
+
+</script>
 
 </body>
-
 </html>
+
 
