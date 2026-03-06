@@ -26,9 +26,9 @@ VAT_RATE = 0.15
 # ---------------- USERS / ROLES ----------------
 
 USERS = {
-    "ryan": {"password": "mok123", "role": "owner"},
-    "lebo": {"password": "accounts123", "role": "accounts"},
-    "admin": {"password": "admin123", "role": "admin"}
+    "ryan": {"password": "@Karabo2009@", "role": "owner"},
+    "lebo": {"password": "@aKarabo2009@", "role": "accounts"},
+    "admin": {"password": "Malebo2913$", "role": "admin"}
 }
 
 
@@ -518,4 +518,3 @@ if __name__ == "__main__":
         port=port
     )
 
-    
