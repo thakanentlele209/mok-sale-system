@@ -43,6 +43,21 @@ USERS = {
     "admin": {"password": "Malebo2913$", "role": "admin"}
 }
 
+# ---------------- PARTY + SUPPLIERS ----------------
+
+PARTIES = [
+"KONE","OTIS","ALICEWEAR","SPIRAX SARCO","TRACLO PTY LTD",
+"TRACLO INTL","TRACLO INTER","MAXIONWHEEL","MINTEK",
+"YMS TRADING DISTRIBUTORS","WALK-IN","WEG","SULZER",
+"CUSTOMS","USAFETY","SILVER","MAXION",
+"Mahniglory and Saama PTY LTD",
+"UPPER LEVEL LIFTS PTY LTD",
+"Power Elevators",
+"Imperio Logistics Holdings (Pty) Ltd"
+]
+
+SUPPLIERS = ["DHL","JKJ","MOK"]
+
 # ---------------- DATABASE ----------------
 
 def get_conn():
@@ -139,12 +154,31 @@ def logout(request: Request):
 def home(request: Request):
 
     user = request.session.get("user")
+    role = request.session.get("role")
 
     if not user:
         return RedirectResponse("/login")
 
     return templates.TemplateResponse(
         "index.html",
+        {
+            "request": request,
+            "parties": PARTIES,
+            "suppliers": SUPPLIERS,
+            "role": role
+        }
+    )
+
+# ---------------- OWNER DASHBOARD ----------------
+
+@app.get("/owner-dashboard", response_class=HTMLResponse)
+def owner_dashboard(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return RedirectResponse("/")
+
+    return templates.TemplateResponse(
+        "owner_dashboard.html",
         {"request": request}
     )
 
@@ -164,7 +198,51 @@ def get_sales():
 
     return rows
 
-# ---------------- DASHBOARD APIs (FIXED) ----------------
+# ---------------- RECORD SALE ----------------
+
+@app.post("/record-sale")
+def record_sale(request: Request, sale: Sale):
+
+    if not require_role(request, ["accounts","admin"]):
+        return {"error":"Permission denied"}
+
+    vat = sale.client_charge * VAT_RATE
+    total = sale.client_charge + vat
+    profit = sale.client_charge - sale.supplier_cost
+
+    sale_date = sale.sale_date if sale.sale_date else None
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    INSERT INTO sales (
+        party,supplier,order_no,invoice_no,waybill,sale_date,
+        supplier_cost,client_charge,vat,total_invoice,profit,paid_status
+    )
+    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """,(
+        sale.party,
+        sale.supplier,
+        sale.order_no,
+        sale.invoice_no,
+        sale.waybill,
+        sale_date,
+        sale.supplier_cost,
+        sale.client_charge,
+        vat,
+        total,
+        profit,
+        sale.paid_status
+    ))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"status":"recorded"}
+
+# ---------------- DASHBOARD APIs ----------------
 
 @app.get("/dashboard-kpis")
 def dashboard_kpis():
@@ -250,6 +328,27 @@ def dashboard_supplier():
 
     return rows
 
+@app.get("/dashboard-top-clients")
+def dashboard_clients():
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT party, SUM(client_charge) as revenue
+    FROM sales
+    GROUP BY party
+    ORDER BY revenue DESC
+    LIMIT 10
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
 @app.get("/accounts-receivable")
 def accounts_receivable():
 
@@ -279,18 +378,14 @@ def owner_analytics(request: Request):
         return {"error":"owner only"}
 
     conn = get_conn()
-
     df = pd.read_sql("SELECT * FROM sales", conn)
-
     conn.close()
 
     revenue = df["client_charge"].sum()
     profit = df["profit"].sum()
 
     monthly = df.groupby(df["sale_date"].astype(str).str[:7])["profit"].sum().to_dict()
-
     client_profit = df.groupby("party")["profit"].sum().sort_values(ascending=False).to_dict()
-
     supplier_profit = df.groupby("supplier")["profit"].sum().sort_values(ascending=False).to_dict()
 
     return {
@@ -300,50 +395,6 @@ def owner_analytics(request: Request):
         "client_profit": client_profit,
         "supplier_profit": supplier_profit
     }
-
-# ---------------- RECORD SALE ----------------
-
-@app.post("/record-sale")
-def record_sale(request: Request, sale: Sale):
-
-    if not require_role(request, ["accounts","admin"]):
-        return {"error":"Permission denied"}
-
-    vat = sale.client_charge * VAT_RATE
-    total = sale.client_charge + vat
-    profit = sale.client_charge - sale.supplier_cost
-
-    sale_date = sale.sale_date if sale.sale_date else None
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-    INSERT INTO sales (
-        party,supplier,order_no,invoice_no,waybill,sale_date,
-        supplier_cost,client_charge,vat,total_invoice,profit,paid_status
-    )
-    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-    """,(
-        sale.party,
-        sale.supplier,
-        sale.order_no,
-        sale.invoice_no,
-        sale.waybill,
-        sale_date,
-        sale.supplier_cost,
-        sale.client_charge,
-        vat,
-        total,
-        profit,
-        sale.paid_status
-    ))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return {"status":"recorded"}
 
 # ---------------- START SERVER ----------------
 
@@ -357,4 +408,4 @@ if __name__ == "__main__":
         port=port
     )
 
-    
+
