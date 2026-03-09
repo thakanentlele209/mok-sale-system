@@ -169,6 +169,74 @@ def home(request: Request):
         }
     )
 
+@app.post("/record-sale")
+def record_sale(request: Request, sale: Sale, vat_enabled: bool = Query(True)):
+
+    role = request.cookies.get("role")
+
+    if role not in ["accounts", "admin"]:
+        return {"error": "Permission denied"}
+
+    vat = sale.client_charge * VAT_RATE if vat_enabled else 0
+    total = sale.client_charge + vat
+    profit = sale.client_charge - sale.supplier_cost
+
+    # fix empty date
+    sale_date = sale.sale_date if sale.sale_date else None
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    INSERT INTO sales (
+        party,supplier,order_no,invoice_no,waybill,sale_date,
+        supplier_cost,client_charge,vat,total_invoice,profit,paid_status
+    )
+    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """,(
+        sale.party,
+        sale.supplier,
+        sale.order_no,
+        sale.invoice_no,
+        sale.waybill,
+        sale_date,
+        sale.supplier_cost,
+        sale.client_charge,
+        vat,
+        total,
+        profit,
+        sale.paid_status
+    ))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {
+        "status":"recorded",
+        "vat":vat,
+        "total_invoice":total,
+        "profit":profit
+    }
+
+
+# ---------------- SALES TABLE ----------------
+
+@app.get("/sales")
+def get_sales():
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM sales ORDER BY id DESC")
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
+
 # ---------------- OWNER DASHBOARD ----------------
 
 @app.get("/owner-dashboard", response_class=HTMLResponse)
@@ -177,11 +245,29 @@ def owner_dashboard(request: Request):
     if not require_role(request, ["owner"]):
         return RedirectResponse("/")
 
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT party, SUM(client_charge) as revenue
+    FROM sales
+    GROUP BY party
+    ORDER BY revenue DESC
+    LIMIT 1
+    """)
+
+    top_client = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
     return templates.TemplateResponse(
         "owner_dashboard.html",
-        {"request": request}
+        {
+            "request": request,
+            "top_client": top_client
+        }
     )
-
 # ---------------- SALES TABLE ----------------
 
 @app.get("/sales")
