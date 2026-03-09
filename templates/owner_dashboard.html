@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Mok Transports Owner Dashboard</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#0c2340;
+margin:0;
+padding:40px;
+color:white;
+}
+
+.container{
+max-width:1100px;
+margin:auto;
+}
+
+h1{
+margin-bottom:30px;
+}
+
+.grid{
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:25px;
+}
+
+.card{
+background:white;
+color:#333;
+padding:25px;
+border-radius:10px;
+box-shadow:0 6px 18px rgba(0,0,0,0.2);
+}
+
+.metric{
+font-size:28px;
+font-weight:bold;
+margin-top:10px;
+}
+
+a{
+color:#fff;
+text-decoration:none;
+font-size:14px;
+}
+
+.topbar{
+margin-bottom:30px;
+display:flex;
+justify-content:space-between;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="topbar">
+<h1>Owner Dashboard</h1>
+<div>
+<a href="/">Sales Dashboard</a> |
+<a href="/logout">Logout</a>
+</div>
+</div>
+
+<div class="grid">
+
+<div class="card">
+<h3>Total Company Revenue</h3>
+<div class="metric">R {{ revenue }}</div>
+</div>
+
+<div class="card">
+<h3>Total Company Profit</h3>
+<div class="metric">R {{ profit }}</div>
+</div>
+
+<div class="card">
+<h3>Unpaid Invoices</h3>
+<div class="metric">{{ unpaid }}</div>
+</div>
+
+<div class="card">
+<h3>Top Client</h3>
+<div class="metric">{{ top_client.party }}</div>
+</div>
+
+<div class="card">
+<h3>Best Supplier</h3>
+<div class="metric">{{ top_supplier.supplier }}</div>
+</div>
+
+</div>
+
+</div>
+
+</body>
+
+</html>
+

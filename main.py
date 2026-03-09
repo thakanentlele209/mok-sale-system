@@ -9,7 +9,9 @@ import pandas as pd
 import os
 import uvicorn
 import smtplib
+import secrets
 from email.message import EmailMessage
+from starlette.middleware.sessions import SessionMiddleware
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -17,13 +19,23 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
 app = FastAPI()
 
+# ---------------- SESSION SECURITY ----------------
+
+SECRET_KEY = os.getenv("SESSION_SECRET", secrets.token_hex(32))
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    max_age=60 * 60 * 8,
+    same_site="lax"
+)
+
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 VAT_RATE = 0.15
 
-
-# ---------------- USERS / ROLES ----------------
+# ---------------- USERS ----------------
 
 USERS = {
     "ryan": {"password": "@Karabo2009@", "role": "owner"},
@@ -31,13 +43,11 @@ USERS = {
     "admin": {"password": "Malebo2913$", "role": "admin"}
 }
 
-
 # ---------------- DATABASE ----------------
 
 def get_conn():
     database_url = os.getenv("DATABASE_URL")
     return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
-
 
 def init_db():
 
@@ -66,9 +76,7 @@ def init_db():
     cur.close()
     conn.close()
 
-
 init_db()
-
 
 # ---------------- MODEL ----------------
 
@@ -83,7 +91,6 @@ class Sale(BaseModel):
     client_charge: float
     paid_status: str
 
-
 # ---------------- DATA ----------------
 
 PARTIES = [
@@ -96,6 +103,16 @@ PARTIES = [
 
 SUPPLIERS = ["DHL","JKJ","MOK"]
 
+# ---------------- ROLE HELPER ----------------
+
+def require_role(request: Request, allowed_roles):
+
+    role = request.session.get("role")
+
+    if role not in allowed_roles:
+        return False
+
+    return True
 
 # ---------------- LOGIN ----------------
 
@@ -103,40 +120,38 @@ SUPPLIERS = ["DHL","JKJ","MOK"]
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
-
 @app.post("/login")
-def login(username: str = Form(...), password: str = Form(...)):
+def login(request: Request, user: str = Form(...), password: str = Form(...)):
 
-    if username in USERS and USERS[username]["password"] == password:
+    if user in USERS and USERS[user]["password"] == password:
 
-        response = RedirectResponse("/", status_code=302)
+        request.session["user"] = user
+        request.session["role"] = USERS[user]["role"]
 
-        response.set_cookie("user", username, httponly=True, samesite="lax")
-        response.set_cookie("role", USERS[username]["role"], httponly=True, samesite="lax")
+        if USERS[user]["role"] == "owner":
+            return RedirectResponse("/owner-dashboard", status_code=302)
 
-        return response
+        return RedirectResponse("/", status_code=302)
 
-    return RedirectResponse("/login", status_code=302)
-
+    return templates.TemplateResponse(
+        "login.html",
+        {"request": request, "error": "Invalid login"}
+    )
 
 @app.get("/logout")
-def logout():
+def logout(request: Request):
 
-    response = RedirectResponse("/login")
+    request.session.clear()
 
-    response.delete_cookie("user")
-    response.delete_cookie("role")
-
-    return response
-
+    return RedirectResponse("/login")
 
 # ---------------- HOME ----------------
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
 
-    user = request.cookies.get("user")
-    role = request.cookies.get("role")
+    user = request.session.get("user")
+    role = request.session.get("role")
 
     if not user:
         return RedirectResponse("/login")
@@ -151,22 +166,75 @@ def home(request: Request):
         }
     )
 
+# ---------------- OWNER DASHBOARD ----------------
+
+@app.get("/owner-dashboard", response_class=HTMLResponse)
+def owner_dashboard(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return RedirectResponse("/")
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT SUM(client_charge) as revenue FROM sales")
+    revenue = cur.fetchone()["revenue"]
+
+    cur.execute("SELECT SUM(profit) as profit FROM sales")
+    profit = cur.fetchone()["profit"]
+
+    cur.execute("""
+    SELECT COUNT(*) as unpaid
+    FROM sales
+    WHERE paid_status!='Paid'
+    """)
+    unpaid = cur.fetchone()["unpaid"]
+
+    cur.execute("""
+    SELECT party, SUM(client_charge) as revenue
+    FROM sales
+    GROUP BY party
+    ORDER BY revenue DESC
+    LIMIT 1
+    """)
+    top_client = cur.fetchone()
+
+    cur.execute("""
+    SELECT supplier, SUM(profit) as profit
+    FROM sales
+    GROUP BY supplier
+    ORDER BY profit DESC
+    LIMIT 1
+    """)
+    top_supplier = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return templates.TemplateResponse(
+        "owner_dashboard.html",
+        {
+            "request": request,
+            "revenue": revenue,
+            "profit": profit,
+            "unpaid": unpaid,
+            "top_client": top_client,
+            "top_supplier": top_supplier
+        }
+    )
 
 # ---------------- RECORD SALE ----------------
 
 @app.post("/record-sale")
 def record_sale(request: Request, sale: Sale, vat_enabled: bool = Query(True)):
 
-    role = request.cookies.get("role")
-
-    if role not in ["accounts", "admin"]:
-        return {"error": "Permission denied"}
+    if not require_role(request, ["accounts","admin"]):
+        return {"error":"Permission denied"}
 
     vat = sale.client_charge * VAT_RATE if vat_enabled else 0
     total = sale.client_charge + vat
     profit = sale.client_charge - sale.supplier_cost
 
-    # fix empty date
     sale_date = sale.sale_date if sale.sale_date else None
 
     conn = get_conn()
@@ -197,13 +265,7 @@ def record_sale(request: Request, sale: Sale, vat_enabled: bool = Query(True)):
     cur.close()
     conn.close()
 
-    return {
-        "status":"recorded",
-        "vat":vat,
-        "total_invoice":total,
-        "profit":profit
-    }
-
+    return {"status":"recorded"}
 
 # ---------------- SALES TABLE ----------------
 
@@ -220,240 +282,6 @@ def get_sales():
     conn.close()
 
     return rows
-
-
-# ---------------- DELETE SALE ----------------
-
-@app.delete("/delete-sale/{sale_id}")
-def delete_sale(request: Request, sale_id: int):
-
-    role = request.cookies.get("role")
-
-    if role not in ["accounts","admin"]:
-        return {"error":"Permission denied"}
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("DELETE FROM sales WHERE id=%s",(sale_id,))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return {"status":"deleted"}
-
-
-# ---------------- UPDATE SALE ----------------
-
-@app.put("/update-sale/{sale_id}")
-def update_sale(request: Request, sale_id:int, sale:Sale, vat_enabled: bool = Query(True)):
-
-    role = request.cookies.get("role")
-
-    if role not in ["accounts","admin"]:
-        return {"error":"Permission denied"}
-
-    vat = sale.client_charge * VAT_RATE if vat_enabled else 0
-    total = sale.client_charge + vat
-    profit = sale.client_charge - sale.supplier_cost
-
-    sale_date = sale.sale_date if sale.sale_date else None
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-    UPDATE sales SET
-    party=%s,
-    supplier=%s,
-    order_no=%s,
-    invoice_no=%s,
-    waybill=%s,
-    sale_date=%s,
-    supplier_cost=%s,
-    client_charge=%s,
-    vat=%s,
-    total_invoice=%s,
-    profit=%s,
-    paid_status=%s
-    WHERE id=%s
-    """,(
-        sale.party,
-        sale.supplier,
-        sale.order_no,
-        sale.invoice_no,
-        sale.waybill,
-        sale_date,
-        sale.supplier_cost,
-        sale.client_charge,
-        vat,
-        total,
-        profit,
-        sale.paid_status,
-        sale_id
-    ))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return {"status":"updated"}
-
-
-# ---------------- DASHBOARDS ----------------
-
-@app.get("/dashboard-kpis")
-def dashboard_kpis():
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-    SELECT
-    SUM(client_charge) as total_sales,
-    SUM(profit) as total_profit,
-    SUM(CASE WHEN paid_status='Paid' THEN client_charge ELSE 0 END) as paid_total,
-    SUM(CASE WHEN paid_status!='Paid' THEN client_charge ELSE 0 END) as outstanding_total
-    FROM sales
-    """)
-
-    result = cur.fetchone()
-
-    cur.close()
-    conn.close()
-
-    return result
-
-
-@app.get("/dashboard-monthly")
-def dashboard_monthly():
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-    SELECT
-    TO_CHAR(sale_date,'YYYY-MM') as month,
-    SUM(profit) as profit
-    FROM sales
-    GROUP BY month
-    ORDER BY month
-    """)
-
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return rows
-
-
-@app.get("/dashboard-by-party")
-def dashboard_by_party():
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-    SELECT
-    party,
-    SUM(profit) as profit
-    FROM sales
-    GROUP BY party
-    ORDER BY profit DESC
-    """)
-
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return rows
-
-
-@app.get("/dashboard-supplier-performance")
-def dashboard_supplier():
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-    SELECT
-    supplier,
-    SUM(profit) as profit
-    FROM sales
-    GROUP BY supplier
-    ORDER BY profit DESC
-    """)
-
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return rows
-
-
-@app.get("/dashboard-top-clients")
-def dashboard_clients():
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-    SELECT
-    party,
-    SUM(client_charge) as revenue
-    FROM sales
-    GROUP BY party
-    ORDER BY revenue DESC
-    LIMIT 10
-    """)
-
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return rows
-
-
-@app.get("/accounts-receivable")
-def accounts_receivable():
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-    SELECT
-    SUM(CASE WHEN paid_status='Paid' THEN client_charge ELSE 0 END) as paid_total,
-    SUM(CASE WHEN paid_status!='Paid' THEN client_charge ELSE 0 END) as outstanding_total
-    FROM sales
-    """)
-
-    result = cur.fetchone()
-
-    cur.close()
-    conn.close()
-
-    return result
-
-
-# ---------------- EXPORT EXCEL ----------------
-
-@app.get("/export-excel")
-def export_excel():
-
-    conn = get_conn()
-    df = pd.read_sql("SELECT * FROM sales", conn)
-    conn.close()
-
-    path = os.path.join(BASE_DIR,"sales_export.xlsx")
-    df.to_excel(path,index=False)
-
-    return FileResponse(path, filename="sales_export.xlsx")
-
 
 # ---------------- EMAIL REPORT ----------------
 
@@ -479,9 +307,6 @@ Mok Transport Monthly Report {month}
 Total Sales: {df.client_charge.sum()}
 Total Cost: {df.supplier_cost.sum()}
 Total Profit: {df.profit.sum()}
-
-Paid: {df[df.paid_status=='Paid'].client_charge.sum()}
-Outstanding: {df[df.paid_status!='Paid'].client_charge.sum()}
 """
 
     msg=EmailMessage()
@@ -504,7 +329,6 @@ Outstanding: {df[df.paid_status!='Paid'].client_charge.sum()}
         server.send_message(msg)
 
     return {"message":"Email sent successfully"}
-
 
 # ---------------- START SERVER ----------------
 
