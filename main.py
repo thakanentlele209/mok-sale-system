@@ -544,9 +544,7 @@ def owner_analytics(request: Request):
         return {"error": "owner only"}
 
     conn = get_conn()
-
     df = pd.read_sql("SELECT * FROM sales", conn)
-
     conn.close()
 
     if df.empty:
@@ -653,7 +651,6 @@ def owner_analytics(request: Request):
     }
 
 
-
 if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
@@ -665,7 +662,4 @@ if __name__=="__main__":
     )
 
 
-
-
-
-    
+ 
