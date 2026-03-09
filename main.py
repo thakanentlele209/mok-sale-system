@@ -91,18 +91,6 @@ class Sale(BaseModel):
     client_charge: float
     paid_status: str
 
-# ---------------- DATA ----------------
-
-PARTIES = [
-"KONE","OTIS","ALICEWEAR","SPIRAX SARCO","TRACLO PTY LTD",
-"TRACLO INTL","TRACLO INTER","MAXIONWHEEL","MINTEK",
-"YMS TRADING DISTRIBUTORS","WALK-IN","WEG","SULZER",
-"CUSTOMS","USAFETY","SILVER","MAXION","Mahniglory and Saama PTY LTD",
-"UPPER LEVEL LIFTS PTY LTD","Power Elevators","Imperio Logistics Holdings (Pty) Ltd"
-]
-
-SUPPLIERS = ["DHL","JKJ","MOK"]
-
 # ---------------- ROLE HELPER ----------------
 
 def require_role(request: Request, allowed_roles):
@@ -138,7 +126,6 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
         {"request": request, "error": "Invalid login"}
     )
 
-
 @app.get("/logout")
 def logout(request: Request):
 
@@ -152,87 +139,177 @@ def logout(request: Request):
 def home(request: Request):
 
     user = request.session.get("user")
-    role = request.session.get("role")
 
     if not user:
         return RedirectResponse("/login")
 
     return templates.TemplateResponse(
         "index.html",
-        {
-            "request": request,
-            "parties": PARTIES,
-            "suppliers": SUPPLIERS,
-            "role": role
-        }
+        {"request": request}
     )
 
-# ---------------- OWNER DASHBOARD ----------------
+# ---------------- SALES TABLE ----------------
 
-@app.get("/owner-dashboard", response_class=HTMLResponse)
-def owner_dashboard(request: Request):
-
-    if not require_role(request, ["owner"]):
-        return RedirectResponse("/")
+@app.get("/sales")
+def get_sales():
 
     conn = get_conn()
     cur = conn.cursor()
 
-    cur.execute("SELECT SUM(client_charge) as revenue FROM sales")
-    revenue = cur.fetchone()["revenue"]
+    cur.execute("SELECT * FROM sales ORDER BY id DESC")
+    rows = cur.fetchall()
 
-    cur.execute("SELECT SUM(profit) as profit FROM sales")
-    profit = cur.fetchone()["profit"]
+    cur.close()
+    conn.close()
+
+    return rows
+
+# ---------------- DASHBOARD APIs (FIXED) ----------------
+
+@app.get("/dashboard-kpis")
+def dashboard_kpis():
+
+    conn = get_conn()
+    cur = conn.cursor()
 
     cur.execute("""
-    SELECT COUNT(*) as unpaid
+    SELECT
+    SUM(client_charge) as total_sales,
+    SUM(profit) as total_profit,
+    SUM(CASE WHEN paid_status='Paid' THEN client_charge ELSE 0 END) as paid_total,
+    SUM(CASE WHEN paid_status!='Paid' THEN client_charge ELSE 0 END) as outstanding_total
     FROM sales
-    WHERE paid_status!='Paid'
     """)
-    unpaid = cur.fetchone()["unpaid"]
+
+    result = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return result
+
+@app.get("/dashboard-monthly")
+def dashboard_monthly():
+
+    conn = get_conn()
+    cur = conn.cursor()
 
     cur.execute("""
-    SELECT party, SUM(client_charge) as revenue
+    SELECT
+    TO_CHAR(sale_date,'YYYY-MM') as month,
+    SUM(profit) as profit
+    FROM sales
+    GROUP BY month
+    ORDER BY month
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
+@app.get("/dashboard-by-party")
+def dashboard_by_party():
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT party, SUM(profit) as profit
     FROM sales
     GROUP BY party
-    ORDER BY revenue DESC
-    LIMIT 1
+    ORDER BY profit DESC
     """)
-    top_client = cur.fetchone()
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
+@app.get("/dashboard-supplier-performance")
+def dashboard_supplier():
+
+    conn = get_conn()
+    cur = conn.cursor()
 
     cur.execute("""
     SELECT supplier, SUM(profit) as profit
     FROM sales
     GROUP BY supplier
     ORDER BY profit DESC
-    LIMIT 1
     """)
-    top_supplier = cur.fetchone()
+
+    rows = cur.fetchall()
 
     cur.close()
     conn.close()
 
-    return templates.TemplateResponse(
-        "owner_dashboard.html",
-        {
-            "request": request,
-            "revenue": revenue,
-            "profit": profit,
-            "unpaid": unpaid,
-            "top_client": top_client,
-            "top_supplier": top_supplier
-        }
-    )
+    return rows
+
+@app.get("/accounts-receivable")
+def accounts_receivable():
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT
+    SUM(CASE WHEN paid_status='Paid' THEN client_charge ELSE 0 END) as paid_total,
+    SUM(CASE WHEN paid_status!='Paid' THEN client_charge ELSE 0 END) as outstanding_total
+    FROM sales
+    """)
+
+    result = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return result
+
+# ---------------- OWNER ANALYTICS ----------------
+
+@app.get("/owner-analytics")
+def owner_analytics(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return {"error":"owner only"}
+
+    conn = get_conn()
+
+    df = pd.read_sql("SELECT * FROM sales", conn)
+
+    conn.close()
+
+    revenue = df["client_charge"].sum()
+    profit = df["profit"].sum()
+
+    monthly = df.groupby(df["sale_date"].astype(str).str[:7])["profit"].sum().to_dict()
+
+    client_profit = df.groupby("party")["profit"].sum().sort_values(ascending=False).to_dict()
+
+    supplier_profit = df.groupby("supplier")["profit"].sum().sort_values(ascending=False).to_dict()
+
+    return {
+        "revenue": revenue,
+        "profit": profit,
+        "monthly_profit": monthly,
+        "client_profit": client_profit,
+        "supplier_profit": supplier_profit
+    }
 
 # ---------------- RECORD SALE ----------------
 
 @app.post("/record-sale")
-def record_sale(request: Request, sale: Sale, vat_enabled: bool = Query(True)):
+def record_sale(request: Request, sale: Sale):
 
     if not require_role(request, ["accounts","admin"]):
         return {"error":"Permission denied"}
 
-    vat = sale.client_charge * VAT_RATE if vat_enabled else 0
+    vat = sale.client_charge * VAT_RATE
     total = sale.client_charge + vat
     profit = sale.client_charge - sale.supplier_cost
 
@@ -268,69 +345,6 @@ def record_sale(request: Request, sale: Sale, vat_enabled: bool = Query(True)):
 
     return {"status":"recorded"}
 
-# ---------------- SALES TABLE ----------------
-
-@app.get("/sales")
-def get_sales():
-
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("SELECT * FROM sales ORDER BY id DESC")
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return rows
-
-# ---------------- EMAIL REPORT ----------------
-
-@app.post("/send-monthly-report")
-def send_monthly_report(month:str, recipient:str):
-
-    conn = get_conn()
-
-    df = pd.read_sql(
-        "SELECT * FROM sales WHERE TO_CHAR(sale_date,'YYYY-MM')=%s",
-        conn,
-        params=[month]
-    )
-
-    conn.close()
-
-    if df.empty:
-        return {"error":"No data"}
-
-    body=f"""
-Mok Transport Monthly Report {month}
-
-Total Sales: {df.client_charge.sum()}
-Total Cost: {df.supplier_cost.sum()}
-Total Profit: {df.profit.sum()}
-"""
-
-    msg=EmailMessage()
-
-    msg["Subject"]=f"Mok Transport Monthly Report {month}"
-    msg["From"]=os.getenv("EMAIL_USER")
-    msg["To"]=recipient
-
-    msg.set_content(body)
-
-    with smtplib.SMTP("smtp.office365.com",587) as server:
-
-        server.starttls()
-
-        server.login(
-            os.getenv("EMAIL_USER"),
-            os.getenv("EMAIL_PASS")
-        )
-
-        server.send_message(msg)
-
-    return {"message":"Email sent successfully"}
-
 # ---------------- START SERVER ----------------
 
 if __name__ == "__main__":
@@ -343,3 +357,4 @@ if __name__ == "__main__":
         port=port
     )
 
+    
