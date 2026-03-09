@@ -121,14 +121,14 @@ def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
-def login(request: Request, user: str = Form(...), password: str = Form(...)):
+def login(request: Request, username: str = Form(...), password: str = Form(...)):
 
-    if user in USERS and USERS[user]["password"] == password:
+    if username in USERS and USERS[username]["password"] == password:
 
-        request.session["user"] = user
-        request.session["role"] = USERS[user]["role"]
+        request.session["user"] = username
+        request.session["role"] = USERS[username]["role"]
 
-        if USERS[user]["role"] == "owner":
+        if USERS[username]["role"] == "owner":
             return RedirectResponse("/owner-dashboard", status_code=302)
 
         return RedirectResponse("/", status_code=302)
@@ -137,6 +137,7 @@ def login(request: Request, user: str = Form(...), password: str = Form(...)):
         "login.html",
         {"request": request, "error": "Invalid login"}
     )
+
 
 @app.get("/logout")
 def logout(request: Request):
