@@ -562,14 +562,32 @@ def owner_analytics(request:Request):
             "revenue_forecast":[]
         }
 
-    revenue=float(df["client_charge"].sum())
-    profit=float(df["profit"].sum())
 
-    monthly=df.groupby(df["sale_date"].astype(str).str[:7])["profit"].sum().to_dict()
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce")
+    df["profit"] = pd.to_numeric(df["profit"], errors="coerce")
 
-    client_profit=df.groupby("party")["profit"].sum().sort_values(ascending=False).to_dict()
+    # remove invalid rows
+    df = df.dropna(subset=["client_charge","profit"])
+    
+    revenue = float(df["client_charge"].sum())
+    profit = float(df["profit"].sum())
 
-    supplier_profit=df.groupby("supplier")["profit"].sum().sort_values(ascending=False).to_dict()
+    monthly = df.groupby(df["sale_date"].astype(str).str[:7])["profit"].sum().to_dict()
+
+    client_profit = (
+    df.groupby("party")["profit"]
+    .sum()
+    .sort_values(ascending=False)
+    .to_dict()
+    )
+     
+    supplier_profit = (
+    df.groupby("supplier")["profit"]
+    .sum()
+    .sort_values(ascending=False)
+    .to_dict()
+    )
+
 
     # dependency risk
     client_revenue=df.groupby("party")["client_charge"].sum()
@@ -601,6 +619,9 @@ if __name__=="__main__":
         host="0.0.0.0",
         port=port
     )
+
+
+
 
 
     
