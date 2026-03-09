@@ -27,7 +27,7 @@ VAT_RATE = 0.15
 
 USERS = {
     "ryan": {"password": "@Karabo2009@", "role": "owner"},
-    "lebo": {"password": "@aKarabo2009@", "role": "accounts"},
+    "lebo": {"password": "Karabo@2009", "role": "accounts"},
     "admin": {"password": "Malebo2913$", "role": "admin"}
 }
 
