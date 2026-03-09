@@ -581,7 +581,7 @@ def owner_analytics(request: Request):
     monthly_profit = (
         monthly_df.groupby(monthly_df["sale_date"].dt.to_period("M"))["profit"]
         .sum()
-        .astype(float)
+        .fillna(0)
         .to_dict()
     )
 
@@ -592,51 +592,66 @@ def owner_analytics(request: Request):
     client_profit = (
         df.groupby("party")["profit"]
         .sum()
+        .fillna(0)
         .sort_values(ascending=False)
-        .astype(float)
         .to_dict()
     )
+
+    client_profit = {k: float(v) for k, v in client_profit.items()}
 
     # ---------- SUPPLIER PROFIT ----------
 
     supplier_profit = (
         df.groupby("supplier")["profit"]
         .sum()
+        .fillna(0)
         .sort_values(ascending=False)
-        .astype(float)
         .to_dict()
     )
+
+    supplier_profit = {k: float(v) for k, v in supplier_profit.items()}
 
     # ---------- CLIENT DEPENDENCY ----------
 
     client_revenue = df.groupby("party")["client_charge"].sum()
 
-    dependency_risk = (
-        (client_revenue / client_revenue.sum() * 100)
-        .round(2)
-        .sort_values(ascending=False)
-        .to_dict()
-    )
+    total_revenue = client_revenue.sum()
+
+    if total_revenue == 0:
+        dependency_risk = {}
+    else:
+        dependency_risk = (
+            (client_revenue / total_revenue * 100)
+            .fillna(0)
+            .round(2)
+            .sort_values(ascending=False)
+            .to_dict()
+        )
+
+    dependency_risk = {k: float(v) for k, v in dependency_risk.items()}
 
     # ---------- SUPPLIER EFFICIENCY ----------
 
     supplier_efficiency = (
         df.groupby("supplier")["profit"]
         .mean()
+        .fillna(0)
         .round(2)
         .sort_values(ascending=False)
         .to_dict()
     )
+
+    supplier_efficiency = {k: float(v) for k, v in supplier_efficiency.items()}
 
     # ---------- REVENUE FORECAST ----------
 
     monthly_revenue = (
         monthly_df.groupby(monthly_df["sale_date"].dt.to_period("M"))["client_charge"]
         .sum()
-        .astype(float)
+        .fillna(0)
     )
 
-    revenue_forecast = monthly_revenue.tail(6).tolist()
+    revenue_forecast = [float(v) for v in monthly_revenue.tail(6).tolist()]
 
     return {
         "revenue": revenue,
@@ -660,6 +675,9 @@ if __name__=="__main__":
         host="0.0.0.0",
         port=port
     )
+
+
+
 
 
  
