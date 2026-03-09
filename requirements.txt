@@ -7,4 +7,6 @@ openpyxl
 python-multipart
 aiofiles
 psycopg2-binary
+itsdangerous
+
 
