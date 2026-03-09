@@ -139,8 +139,13 @@
 
         async function loadAnalytics() {
 
-            const res = await fetch("/owner-analytics")
+            const res = await fetch("/owner-analytics", {
+                credentials: "include"
+            })
+
             const data = await res.json()
+
+            console.log("Owner Analytics:", data)
 
             document.getElementById("revenue").innerText =
                 "R " + Number(data.revenue).toLocaleString()
@@ -209,5 +214,4 @@
 </body>
 
 </html>
-
 
