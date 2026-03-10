@@ -148,13 +148,13 @@
             console.log("Owner Analytics:", data)
 
             document.getElementById("revenue").innerText =
-                "R " + Number(data.revenue).toLocaleString()
+                "R " + Number(data.revenue || 0).toLocaleString()
 
             document.getElementById("profit").innerText =
-                "R " + Number(data.profit).toLocaleString()
+                "R " + Number(data.profit || 0).toLocaleString()
 
-            const months = Object.keys(data.monthly_profit)
-            const profits = Object.values(data.monthly_profit)
+            const months = Object.keys(data.monthly_profit || {})
+            const profits = Object.values(data.monthly_profit || {})
 
             if (monthlyChart) monthlyChart.destroy()
 
@@ -171,8 +171,8 @@
                     }
                 })
 
-            const clients = Object.keys(data.client_profit)
-            const clientProfit = Object.values(data.client_profit)
+            const clients = Object.keys(data.client_profit || {})
+            const clientProfit = Object.values(data.client_profit || {})
 
             if (clientChart) clientChart.destroy()
 
@@ -188,8 +188,8 @@
                     }
                 })
 
-            const suppliers = Object.keys(data.supplier_profit)
-            const supplierProfit = Object.values(data.supplier_profit)
+            const suppliers = Object.keys(data.supplier_profit || {})
+            const supplierProfit = Object.values(data.supplier_profit || {})
 
             if (supplierChart) supplierChart.destroy()
 
@@ -214,4 +214,5 @@
 </body>
 
 </html>
+
 

@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 import smtplib
 from email.message import EmailMessage
 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -536,7 +537,6 @@ def owner_dashboard(request:Request):
     )
 
 # ---------------- OWNER ANALYTICS ----------------
-
 @app.get("/owner-analytics")
 def owner_analytics(request: Request):
 
@@ -544,27 +544,15 @@ def owner_analytics(request: Request):
         return {"error": "owner only"}
 
     conn = get_conn()
+
+    # IMPORTANT FIX
     df = pd.read_sql("SELECT * FROM sales", conn)
     conn.close()
 
-    if df.empty:
-        return {
-            "revenue": 0,
-            "profit": 0,
-            "vat": 0,
-            "monthly_profit": {},
-            "client_profit": {},
-            "supplier_profit": {},
-            "dependency_risk": {},
-            "supplier_efficiency": {},
-            "revenue_forecast": []
-        }
-
-    # ---------- CLEAN DATA ----------
-
-    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
-    df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
-    df["vat"] = pd.to_numeric(df["vat"], errors="coerce").fillna(0)
+    # Force numeric conversion immediately
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0).astype(float)
+    df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0).astype(float)
+    df["vat"] = pd.to_numeric(df["vat"], errors="coerce").fillna(0).astype(float)
 
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
 
