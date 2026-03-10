@@ -13,6 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi.responses import FileResponse
 import smtplib
 from email.message import EmailMessage
+import numpy as np
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -507,6 +508,59 @@ def send_monthly_report(month: str, recipient: str):
 
     return {"message":"Report sent"}
 
+
+
+#---------------Revenue Forecast----------------------------------
+@app.get("/revenue-forecast")
+def revenue_forecast(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return {"error": "owner only"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT sale_date, client_charge
+        FROM sales
+        WHERE sale_date IS NOT NULL
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    if not rows:
+        return {"forecast": {}}
+
+    df = pd.DataFrame(rows)
+
+    df["sale_date"] = pd.to_datetime(df["sale_date"])
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
+
+    monthly = (
+        df.groupby(df["sale_date"].dt.to_period("M"))["client_charge"]
+        .sum()
+        .reset_index()
+    )
+
+    monthly["month_index"] = range(len(monthly))
+
+    x = monthly["month_index"]
+    y = monthly["client_charge"]
+
+    slope, intercept = np.polyfit(x, y, 1)
+
+    next_month = len(monthly)
+
+    forecast_value = slope * next_month + intercept
+
+    return {
+        "forecast_month": str((pd.Period(monthly.iloc[-1]["sale_date"]) + 1)),
+        "forecast_revenue": float(forecast_value)
+    }
+
 # ---------------- OWNER DASHBOARD ----------------
 
 @app.get("/owner-dashboard",response_class=HTMLResponse)
@@ -535,6 +589,88 @@ def owner_dashboard(request:Request):
         "owner_dashboard.html",
         {"request":request,"top_client":top_client}
     )
+
+
+#------------Profit Margin Trend-------------
+@app.get("/profit-margin-trend")
+def profit_margin_trend(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return {"error": "owner only"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT sale_date, client_charge, supplier_cost
+        FROM sales
+        WHERE sale_date IS NOT NULL
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    df = pd.DataFrame(rows)
+
+    df["sale_date"] = pd.to_datetime(df["sale_date"])
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce")
+    df["supplier_cost"] = pd.to_numeric(df["supplier_cost"], errors="coerce")
+
+    df["margin"] = (df["client_charge"] - df["supplier_cost"]) / df["client_charge"] * 100
+
+    monthly = (
+        df.groupby(df["sale_date"].dt.to_period("M"))["margin"]
+        .mean()
+        .round(2)
+    )
+
+    return monthly.to_dict()
+
+
+#----------------Profit Alerts------------------------------
+@app.get("/profit-alert")
+def profit_alert(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return {"error": "owner only"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT client_charge, supplier_cost
+        FROM sales
+        ORDER BY sale_date DESC
+        LIMIT 20
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    df = pd.DataFrame(rows)
+
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce")
+    df["supplier_cost"] = pd.to_numeric(df["supplier_cost"], errors="coerce")
+
+    df["margin"] = (df["client_charge"] - df["supplier_cost"]) / df["client_charge"] * 100
+
+    avg_margin = df["margin"].mean()
+
+    if avg_margin < 15:
+        return {
+            "alert": True,
+            "message": "⚠ Profit margins are dropping below safe levels."
+        }
+
+    return {
+        "alert": False,
+        "message": "Profit margins healthy"
+    }
+
 
 # ---------------- OWNER ANALYTICS ----------------
 @app.get("/owner-analytics")

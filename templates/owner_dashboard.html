@@ -67,8 +67,10 @@
 
         canvas {
             background: white;
-            padding: 10px;
+            padding: 15px;
             border-radius: 10px;
+            height: 300px !important;
+            max-height: 300px;
         }
 
         button {
@@ -126,6 +128,8 @@
             <canvas id="monthlyProfit"></canvas>
             <canvas id="clientProfit"></canvas>
             <canvas id="supplierProfit"></canvas>
+            <canvas id="forecastChart"></canvas>
+            <canvas id="marginTrend"></canvas>
 
         </div>
 
@@ -206,6 +210,53 @@
                 })
 
         }
+
+
+
+        async function loadForecast() {
+
+            const res = await fetch("/revenue-forecast", { credentials: "include" })
+            const data = await res.json()
+
+            new Chart(
+                document.getElementById("forecastChart"),
+                {
+                    type: "bar",
+                    data: {
+                        labels: [data.forecast_month],
+                        datasets: [{
+                            label: "Predicted Revenue",
+                            data: [data.forecast_revenue]
+                        }]
+                    }
+                })
+        }
+
+        async function loadMarginTrend() {
+
+            const res = await fetch("/profit-margin-trend", { credentials: "include" })
+            const data = await res.json()
+
+            const months = Object.keys(data)
+            const margins = Object.values(data)
+
+            new Chart(
+                document.getElementById("marginTrend"),
+                {
+                    type: "line",
+                    data: {
+                        labels: months,
+                        datasets: [{
+                            label: "Profit Margin %",
+                            data: margins
+                        }]
+                    }
+                })
+        }
+
+        loadMarginTrend()
+
+        loadForecast()
 
         loadAnalytics()
 
