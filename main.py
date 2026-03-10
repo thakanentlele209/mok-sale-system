@@ -574,8 +574,22 @@ def owner_analytics(request: Request):
     )
     monthly_profit = {str(k): v for k, v in monthly_profit.items()}
 
-    client_profit = df.groupby("party")["profit"].sum().astype(float).to_dict()
-    supplier_profit = df.groupby("supplier")["profit"].sum().astype(float).to_dict()
+
+    client_profit = (
+    df.groupby("party")["profit"]
+    .sum()
+    .fillna(0)
+    .astype(float)
+    .to_dict()
+     )
+
+    supplier_profit = (
+     df.groupby("supplier")["profit"]
+     .sum()
+     .fillna(0)
+     .astype(float)
+     .to_dict()
+)
 
     return {
         "revenue": revenue,
