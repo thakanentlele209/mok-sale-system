@@ -540,7 +540,7 @@ def owner_dashboard(request:Request):
 @app.get("/owner-analytics")
 def owner_analytics(request: Request):
 
-    conn = get_db_connection()
+    conn = get_conn()
 
     df = pd.read_sql("SELECT * FROM sales", conn)
 
