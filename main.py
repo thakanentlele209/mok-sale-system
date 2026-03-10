@@ -546,8 +546,21 @@ def owner_analytics(request: Request):
     conn = get_conn()
 
     # IMPORTANT FIX
-    df = pd.read_sql("SELECT * FROM sales", conn)
+    df = pd.read_sql("SELECT party, supplier, client_charge, profit, vat, sale_date FROM sales", conn)
     conn.close()
+
+    if df.empty:
+        return {
+        "revenue": 0,
+        "profit": 0,
+        "vat": 0,
+        "monthly_profit": {},
+        "client_profit": {},
+        "supplier_profit": {},
+        "dependency_risk": {},
+        "supplier_efficiency": {},
+        "revenue_forecast": []
+    }
 
     # Force numeric conversion immediately
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0).astype(float)
