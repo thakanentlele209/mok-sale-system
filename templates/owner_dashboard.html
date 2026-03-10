@@ -159,7 +159,7 @@
             if (monthlyChart) monthlyChart.destroy()
 
             monthlyChart = new Chart(
-                document.getElementById("monthlyProfit"),
+                document.getElementById("monthlyProfit").getContext("2d"),
                 {
                     type: "bar",
                     data: {
@@ -177,7 +177,7 @@
             if (clientChart) clientChart.destroy()
 
             clientChart = new Chart(
-                document.getElementById("clientProfit"),
+                document.getElementById("clientProfit").getContext("2d"),
                 {
                     type: "pie",
                     data: {
@@ -194,7 +194,7 @@
             if (supplierChart) supplierChart.destroy()
 
             supplierChart = new Chart(
-                document.getElementById("supplierProfit"),
+                document.getElementById("supplierProfit").getContext("2d"),
                 {
                     type: "doughnut",
                     data: {
@@ -214,5 +214,4 @@
 </body>
 
 </html>
-
 
