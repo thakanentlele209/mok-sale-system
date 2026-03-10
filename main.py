@@ -540,14 +540,9 @@ def owner_dashboard(request:Request):
 @app.get("/owner-analytics")
 def owner_analytics(request: Request):
 
-    if not require_role(request, ["owner"]):
-        return {"error": "owner only"}
-
-    conn = get_conn()
+    conn = get_db_connection()
 
     df = pd.read_sql("SELECT * FROM sales", conn)
-
-    conn.close()
 
     if df.empty:
         return {
@@ -555,101 +550,53 @@ def owner_analytics(request: Request):
             "profit": 0,
             "monthly_profit": {},
             "client_profit": {},
-            "supplier_profit": {},
-            "dependency_risk": {},
-            "supplier_efficiency": {},
-            "revenue_forecast": []
+            "supplier_profit": {}
         }
 
-    # Convert numeric columns
-    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce")
-    df["profit"] = pd.to_numeric(df["profit"], errors="coerce")
-
-    # Convert date column properly
+    # FIX 1: convert date column
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
 
-    # Remove invalid rows
-    df = df.dropna(subset=["client_charge", "profit", "sale_date"])
+    # FIX 2: ensure numeric values
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
+    df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
 
-    # =====================
-    # KPI TOTALS
-    # =====================
-
+    # TOTALS
     revenue = float(df["client_charge"].sum())
     profit = float(df["profit"].sum())
 
-    # =====================
     # MONTHLY PROFIT
-    # =====================
-
     monthly_profit = (
-        df.groupby(df["sale_date"].dt.strftime("%Y-%m"))["profit"]
+        df.groupby(df["sale_date"].dt.to_period("M"))["profit"]
         .sum()
-        .sort_index()
+        .astype(float)
         .to_dict()
     )
 
-    # =====================
-    # CLIENT PROFIT
-    # =====================
+    monthly_profit = {str(k): v for k, v in monthly_profit.items()}
 
+    # CLIENT PROFIT
     client_profit = (
         df.groupby("party")["profit"]
         .sum()
-        .sort_values(ascending=False)
+        .astype(float)
         .to_dict()
     )
 
-    # =====================
     # SUPPLIER PROFIT
-    # =====================
-
     supplier_profit = (
         df.groupby("supplier")["profit"]
         .sum()
-        .sort_values(ascending=False)
+        .astype(float)
         .to_dict()
     )
-
-    # =====================
-    # CLIENT DEPENDENCY RISK
-    # =====================
-
-    client_revenue = df.groupby("party")["client_charge"].sum()
-    dependency_risk = (client_revenue / client_revenue.sum() * 100).round(2).to_dict()
-
-    # =====================
-    # SUPPLIER EFFICIENCY
-    # =====================
-
-    supplier_cost = df.groupby("supplier")["supplier_cost"].sum()
-    supplier_revenue = df.groupby("supplier")["client_charge"].sum()
-
-    supplier_efficiency = ((supplier_revenue - supplier_cost) / supplier_cost * 100).round(2).to_dict()
-
-    # =====================
-    # SIMPLE REVENUE FORECAST
-    # =====================
-
-    monthly_rev = (
-        df.groupby(df["sale_date"].dt.strftime("%Y-%m"))["client_charge"]
-        .sum()
-        .reset_index()
-    )
-
-    revenue_forecast = monthly_rev["client_charge"].tail(3).tolist()
 
     return {
         "revenue": revenue,
         "profit": profit,
         "monthly_profit": monthly_profit,
         "client_profit": client_profit,
-        "supplier_profit": supplier_profit,
-        "dependency_risk": dependency_risk,
-        "supplier_efficiency": supplier_efficiency,
-        "revenue_forecast": revenue_forecast
+        "supplier_profit": supplier_profit
     }
-
 
 
 if __name__=="__main__":
