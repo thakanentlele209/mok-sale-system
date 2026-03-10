@@ -539,56 +539,43 @@ def owner_dashboard(request:Request):
 # ---------------- OWNER ANALYTICS ----------------
 @app.get("/owner-analytics")
 def owner_analytics(request: Request):
+    if not require_role(request, ["owner"]):
+        return {"error": "owner only"}
 
-    conn = get_conn()
+    # FIX: Use the correct function name 'get_conn'
+    conn = get_conn() 
 
     df = pd.read_sql("SELECT * FROM sales", conn)
+    conn.close()
 
     if df.empty:
         return {
-            "revenue": 0,
-            "profit": 0,
-            "monthly_profit": {},
-            "client_profit": {},
-            "supplier_profit": {}
+            "revenue": 0, "profit": 0, "monthly_profit": {},
+            "client_profit": {}, "supplier_profit": {}
         }
 
-    # FIX 1: convert date column
+    # FIX: Robust date conversion
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
-
-    # FIX 2: ensure numeric values
+    
+    # FIX: Ensure numeric values and fill empty ones with 0 to prevent "R 0"
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
     df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
 
-    # TOTALS
     revenue = float(df["client_charge"].sum())
     profit = float(df["profit"].sum())
 
-    # MONTHLY PROFIT
+    # MONTHLY PROFIT (Handles empty dates)
+    df_clean = df.dropna(subset=["sale_date"])
     monthly_profit = (
-        df.groupby(df["sale_date"].dt.to_period("M"))["profit"]
+        df_clean.groupby(df_clean["sale_date"].dt.to_period("M"))["profit"]
         .sum()
         .astype(float)
         .to_dict()
     )
-
     monthly_profit = {str(k): v for k, v in monthly_profit.items()}
 
-    # CLIENT PROFIT
-    client_profit = (
-        df.groupby("party")["profit"]
-        .sum()
-        .astype(float)
-        .to_dict()
-    )
-
-    # SUPPLIER PROFIT
-    supplier_profit = (
-        df.groupby("supplier")["profit"]
-        .sum()
-        .astype(float)
-        .to_dict()
-    )
+    client_profit = df.groupby("party")["profit"].sum().astype(float).to_dict()
+    supplier_profit = df.groupby("supplier")["profit"].sum().astype(float).to_dict()
 
     return {
         "revenue": revenue,
@@ -608,6 +595,7 @@ if __name__=="__main__":
         host="0.0.0.0",
         port=port
     )
+
 
 
 
