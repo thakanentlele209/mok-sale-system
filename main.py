@@ -602,9 +602,9 @@ def profit_margin_trend(request: Request):
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT sale_date, client_charge, supplier_cost
-        FROM sales
-        WHERE sale_date IS NOT NULL
+    SELECT sale_date, client_charge, supplier_cost
+    FROM sales
+    WHERE sale_date IS NOT NULL
     """)
 
     rows = cur.fetchall()
@@ -612,18 +612,19 @@ def profit_margin_trend(request: Request):
     cur.close()
     conn.close()
 
+    if not rows:
+        return {}
+
     df = pd.DataFrame(rows)
 
-    df["sale_date"] = pd.to_datetime(df["sale_date"])
-    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce")
-    df["supplier_cost"] = pd.to_numeric(df["supplier_cost"], errors="coerce")
-
-    df["margin"] = (df["client_charge"] - df["supplier_cost"]) / df["client_charge"] * 100
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
+    df["supplier_cost"] = pd.to_numeric(df["supplier_cost"], errors="coerce").fillna(0)
 
     df["margin"] = np.where(
-    df["client_charge"] > 0,
-    ((df["client_charge"] - df["supplier_cost"]) / df["client_charge"]) * 100,0
-                                                                              
+        df["client_charge"] > 0,
+        ((df["client_charge"] - df["supplier_cost"]) / df["client_charge"]) * 100,
+        0
     )
 
     monthly = (
@@ -632,8 +633,9 @@ def profit_margin_trend(request: Request):
         .round(2)
     )
 
-    return monthly.to_dict()
+    result = {str(k): float(v) for k, v in monthly.items()}
 
+    return result
 
 #----------------Profit Alerts------------------------------
 @app.get("/profit-alert")
@@ -688,7 +690,10 @@ def ai_business_insights(request: Request):
     conn = get_conn()
     cur = conn.cursor()
 
-    cur.execute("SELECT sale_date, client_charge, supplier_cost, profit FROM sales")
+    cur.execute("""
+    SELECT party, sale_date, client_charge, supplier_cost, profit
+    FROM sales
+    """)
 
     rows = cur.fetchall()
 
@@ -696,11 +701,11 @@ def ai_business_insights(request: Request):
     conn.close()
 
     if not rows:
-        return {"insights":["No sales data available"]}
+        return {"insights":["No sales data available yet"]}
 
     df = pd.DataFrame(rows)
 
-    df["sale_date"] = pd.to_datetime(df["sale_date"])
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
     df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
     df["supplier_cost"] = pd.to_numeric(df["supplier_cost"], errors="coerce").fillna(0)
@@ -712,18 +717,27 @@ def ai_business_insights(request: Request):
 
     margin = (total_profit / total_revenue) * 100 if total_revenue else 0
 
+    insights.append(f"Total revenue generated is R {total_revenue:,.2f}")
+    insights.append(f"Overall profit margin is {margin:.2f}%")
+
     if margin < 20:
         insights.append("Profit margins are below 20%. Review supplier costs.")
 
     monthly = df.groupby(df["sale_date"].dt.to_period("M"))["client_charge"].sum()
 
     if len(monthly) > 1:
-        growth = ((monthly.iloc[-1] - monthly.iloc[-2]) / monthly.iloc[-2]) * 100
 
-        if growth > 10:
-            insights.append(f"Revenue increased {growth:.1f}% last month.")
-        elif growth < -10:
-            insights.append(f"Revenue dropped {abs(growth):.1f}% last month.")
+        prev = monthly.iloc[-2]
+        last = monthly.iloc[-1]
+
+        if prev > 0:
+            growth = ((last - prev) / prev) * 100
+
+            if growth > 10:
+                insights.append(f"Revenue increased {growth:.1f}% last month.")
+
+            elif growth < -10:
+                insights.append(f"Revenue dropped {abs(growth):.1f}% last month.")
 
     top_client = df.groupby("party")["client_charge"].sum().idxmax()
 

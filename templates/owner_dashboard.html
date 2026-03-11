@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Mok Transports Ryan Mokgethi Platform</title>
+    <title>Mok Transports CEO Platform</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -148,10 +148,10 @@
 <body>
     <div class="topbar">
         <div class="logo-section"> <img src="/static/logo.png">
-            <div class="platform-title">Mok Transports Intelligence Platform</div>
+            <div class="platform-title">Ryan Mokgethi Dashboard</div>
         </div>
         <div class="right-menu">
-            <div id="datetime"></div> <button class="sales-btn" onclick="window.location.href='/'"> Sales Dashboard
+            <div id="datetime"></div> <button class="sales-btn" onclick="window.location.href='/'"> Finance Dashboard
             </button> <button class="logout-btn" onclick="window.location.href='/logout'"> Logout </button>
         </div>
     </div>
@@ -213,6 +213,7 @@
             const now = new Date()
             document.getElementById("datetime").innerText = now.toLocaleDateString() + " " + now.toLocaleTimeString()
         }
+
         setInterval(updateTime, 1000)
         /* ANALYTICS */
         async function loadAnalytics() {
