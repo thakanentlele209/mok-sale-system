@@ -3,389 +3,390 @@
 
 <head>
 
-<meta charset="UTF-8">
-<title>Mok Transports Ryan Platform</title>
+    <meta charset="UTF-8">
+    <title>Mok Transports Intelligence Platform</title>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<style>
+    <style>
+        body {
+            font-family: Segoe UI, Arial;
+            margin: 0;
+            background: #eef2f7;
+        }
 
-body{
-font-family:Segoe UI, Arial;
-margin:0;
-background:#eef2f7;
-}
+        /* HEADER */
 
-/* HEADER */
+        .topbar {
+            background: #1773d6;
+            color: white;
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-.topbar{
-background:#1773d6;
-color:white;
-padding:15px 40px;
-display:flex;
-justify-content:space-between;
-align-items:center;
-}
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
 
-.logo-section{
-display:flex;
-align-items:center;
-gap:15px;
-}
+        .logo-section img {
+            height: 42px;
+        }
 
-.logo-section img{
-height:42px;
-}
+        .platform-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
 
-.platform-title{
-font-size:20px;
-font-weight:600;
-}
+        .right-menu {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
 
-.right-menu{
-display:flex;
-align-items:center;
-gap:15px;
-}
+        .right-menu button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
 
-.right-menu button{
-padding:8px 14px;
-border:none;
-border-radius:6px;
-cursor:pointer;
-font-weight:500;
-}
+        .sales-btn {
+            background: #2e7d32;
+            color: white;
+        }
 
-.sales-btn{
-background:#2e7d32;
-color:white;
-}
+        .logout-btn {
+            background: #c62828;
+            color: white;
+        }
 
-.logout-btn{
-background:#c62828;
-color:white;
-}
+        /* CONTAINER */
 
-/* CONTAINER */
+        .container {
+            padding: 30px 40px;
+        }
 
-.container{
-padding:30px 40px;
-}
+        /* KPI GRID */
 
-/* KPI GRID */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+            margin-bottom: 25px;
+        }
 
-.kpi-grid{
-display:grid;
-grid-template-columns:repeat(5,1fr);
-gap:20px;
-margin-bottom:25px;
-}
+        .kpi {
+            background: white;
+            padding: 18px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        }
 
-.kpi{
-background:white;
-padding:18px;
-border-radius:10px;
-box-shadow:0 3px 10px rgba(0,0,0,0.08);
-}
+        .kpi h4 {
+            margin: 0;
+            font-size: 14px;
+            color: #666;
+        }
 
-.kpi h4{
-margin:0;
-font-size:14px;
-color:#666;
-}
+        .kpi p {
+            margin-top: 6px;
+            font-size: 24px;
+            font-weight: 600;
+            color: #0d1b2a;
+        }
 
-.kpi p{
-margin-top:6px;
-font-size:24px;
-font-weight:600;
-color:#0d1b2a;
-}
+        /* CHART GRID */
 
-/* CHART GRID */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+        }
 
-.grid{
-display:grid;
-grid-template-columns:repeat(2,1fr);
-gap:25px;
-}
+        .card {
+            background: white;
+            padding: 18px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        }
 
-.card{
-background:white;
-padding:18px;
-border-radius:10px;
-box-shadow:0 3px 10px rgba(0,0,0,0.08);
-}
+        .card h3 {
+            margin-top: 0;
+            font-size: 16px;
+        }
 
-.card h3{
-margin-top:0;
-font-size:16px;
-}
+        canvas {
+            height: 260px !important;
+        }
 
-canvas{
-height:260px !important;
-}
+        /* ALERT */
 
-/* ALERT */
-
-.alert{
-background:#ffe8e8;
-padding:12px;
-border-radius:8px;
-margin-bottom:20px;
-display:none;
-}
-
-</style>
+        .alert {
+            background: #ffe8e8;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+    </style>
 
 </head>
 
 <body>
 
-<div class="topbar">
+    <div class="topbar">
 
-<div class="logo-section">
+        <div class="logo-section">
 
-<img src="/static/logo.png">
+            <img src="/static/logo.png">
 
-<div class="platform-title">
-Mok Transport Intelligence Platform
-</div>
+            <div class="platform-title">
+                Mok Transports Intelligence Platform
+            </div>
 
-</div>
+        </div>
 
-<div class="right-menu">
+        <div class="right-menu">
 
-<div id="datetime"></div>
+            <div id="datetime"></div>
 
-<button class="sales-btn" onclick="window.location.href='/'">
-Sales Dashboard
-</button>
+            <button class="sales-btn" onclick="window.location.href='/'">
+                Sales Dashboard
+            </button>
 
-<button class="logout-btn" onclick="window.location.href='/logout'">
-Logout
-</button>
+            <button class="logout-btn" onclick="window.location.href='/logout'">
+                Logout
+            </button>
 
-</div>
+        </div>
 
-</div>
+    </div>
 
-<div class="container">
+    <div class="container">
 
-<div id="alertBox" class="alert"></div>
+        <div id="alertBox" class="alert"></div>
 
-<div class="kpi-grid">
+        <div class="kpi-grid">
 
-<div class="kpi">
-<h4>Total Revenue</h4>
-<p id="revenue">R0</p>
-</div>
+            <div class="kpi">
+                <h4>Total Revenue</h4>
+                <p id="revenue">R0</p>
+            </div>
 
-<div class="kpi">
-<h4>Total Profit</h4>
-<p id="profit">R0</p>
-</div>
+            <div class="kpi">
+                <h4>Total Profit</h4>
+                <p id="profit">R0</p>
+            </div>
 
-<div class="kpi">
-<h4>Profit Margin</h4>
-<p id="margin">0%</p>
-</div>
+            <div class="kpi">
+                <h4>Profit Margin</h4>
+                <p id="margin">0%</p>
+            </div>
 
-<div class="kpi">
-<h4>Top Client</h4>
-<p>{{ top_client['party'] if top_client else "N/A" }}</p>
-</div>
+            <div class="kpi">
+                <h4>Top Client</h4>
+                <p>{{ top_client['party'] if top_client else "N/A" }}</p>
+            </div>
 
-<div class="kpi">
-<h4>Top Client Revenue</h4>
-<p>R {{ "{:,.2f}".format(top_client['revenue']) if top_client else 0 }}</p>
-</div>
+            <div class="kpi">
+                <h4>Top Client Revenue</h4>
+                <p>R {{ "{:,.2f}".format(top_client['revenue']) if top_client else 0 }}</p>
+            </div>
 
-</div>
+        </div>
 
-<div class="grid">
+        <div class="grid">
 
-<div class="card">
-<h3>Monthly Profit Trend</h3>
-<canvas id="monthlyProfit"></canvas>
-</div>
+            <div class="card">
+                <h3>Monthly Profit Trend</h3>
+                <canvas id="monthlyProfit"></canvas>
+            </div>
 
-<div class="card">
-<h3>Profit Margin Trend</h3>
-<canvas id="marginTrend"></canvas>
-</div>
+            <div class="card">
+                <h3>Profit Margin Trend</h3>
+                <canvas id="marginTrend"></canvas>
+            </div>
 
-<div class="card">
-<h3>Client Profit Distribution</h3>
-<canvas id="clientProfit"></canvas>
-</div>
+            <div class="card">
+                <h3>Client Profit Distribution</h3>
+                <canvas id="clientProfit"></canvas>
+            </div>
 
-<div class="card">
-<h3>Supplier Performance</h3>
-<canvas id="supplierProfit"></canvas>
-</div>
+            <div class="card">
+                <h3>Supplier Performance</h3>
+                <canvas id="supplierProfit"></canvas>
+            </div>
 
-<div class="card">
-<h3>AI Revenue Forecast</h3>
-<canvas id="forecastChart"></canvas>
-</div>
+            <div class="card">
+                <h3>AI Revenue Forecast</h3>
+                <canvas id="forecastChart"></canvas>
+            </div>
 
-</div>
+        </div>
 
-</div>
+    </div>
 
-<script>
+    <script>
 
-/* DATE TIME */
+        /* DATE TIME */
 
-function updateTime(){
+        function updateTime() {
 
-const now=new Date()
+            const now = new Date()
 
-document.getElementById("datetime").innerText=
-now.toLocaleDateString()+" "+now.toLocaleTimeString()
+            document.getElementById("datetime").innerText =
+                now.toLocaleDateString() + " " + now.toLocaleTimeString()
 
-}
+        }
 
-setInterval(updateTime,1000)
+        setInterval(updateTime, 1000)
 
 
 
-/* LOAD ANALYTICS */
+        /* LOAD ANALYTICS */
 
-async function loadAnalytics(){
+        async function loadAnalytics() {
 
-const res=await fetch("/owner-analytics",{credentials:"include"})
-const data=await res.json()
+            const res = await fetch("/owner-analytics", { credentials: "include" })
+            const data = await res.json()
 
-document.getElementById("revenue").innerText=
-"R "+Number(data.revenue).toLocaleString()
+            document.getElementById("revenue").innerText =
+                "R " + Number(data.revenue).toLocaleString()
 
-document.getElementById("profit").innerText=
-"R "+Number(data.profit).toLocaleString()
+            document.getElementById("profit").innerText =
+                "R " + Number(data.profit).toLocaleString()
 
-let margin=(data.profit/data.revenue)*100
+            let margin = (data.profit / data.revenue) * 100
 
-document.getElementById("margin").innerText=
-margin.toFixed(2)+" %"
+            document.getElementById("margin").innerText =
+                margin.toFixed(2) + " %"
 
-new Chart(document.getElementById("monthlyProfit"),{
-type:"bar",
-data:{
-labels:Object.keys(data.monthly_profit),
-datasets:[{
-label:"Monthly Profit",
-data:Object.values(data.monthly_profit)
-}]
-}
-})
+            new Chart(document.getElementById("monthlyProfit"), {
+                type: "bar",
+                data: {
+                    labels: Object.keys(data.monthly_profit),
+                    datasets: [{
+                        label: "Monthly Profit",
+                        data: Object.values(data.monthly_profit)
+                    }]
+                }
+            })
 
-new Chart(document.getElementById("clientProfit"),{
-type:"pie",
-data:{
-labels:Object.keys(data.client_profit),
-datasets:[{
-data:Object.values(data.client_profit)
-}]
-}
-})
+            new Chart(document.getElementById("clientProfit"), {
+                type: "pie",
+                data: {
+                    labels: Object.keys(data.client_profit),
+                    datasets: [{
+                        data: Object.values(data.client_profit)
+                    }]
+                }
+            })
 
-new Chart(document.getElementById("supplierProfit"),{
-type:"doughnut",
-data:{
-labels:Object.keys(data.supplier_profit),
-datasets:[{
-data:Object.values(data.supplier_profit)
-}]
-}
-})
+            new Chart(document.getElementById("supplierProfit"), {
+                type: "doughnut",
+                data: {
+                    labels: Object.keys(data.supplier_profit),
+                    datasets: [{
+                        data: Object.values(data.supplier_profit)
+                    }]
+                }
+            })
 
-}
+        }
 
 
 
-/* MARGIN TREND */
+        /* MARGIN TREND */
+        async function loadMargin() {
 
-async function loadMargin(){
+            const res = await fetch("/profit-margin-trend", { credentials: "include" })
+            const data = await res.json()
 
-const res=await fetch("/profit-margin-trend",{credentials:"include"})
-const data=await res.json()
+            if (Object.keys(data).length === 0) {
+                console.log("No margin data yet")
+                return
+            }
 
-new Chart(document.getElementById("marginTrend"),{
+            new Chart(document.getElementById("marginTrend"), {
 
-type:"line",
+                type: "line",
 
-data:{
-labels:Object.keys(data),
-datasets:[{
-label:"Margin %",
-data:Object.values(data)
-}]
-}
+                data: {
+                    labels: Object.keys(data),
+                    datasets: [{
+                        label: "Margin %",
+                        data: Object.values(data),
+                        borderWidth: 3,
+                        tension: 0.3
+                    }]
+                }
 
-})
+            })
 
-}
+        }
 
 
 
-/* FORECAST */
+        /* FORECAST */
 
-async function loadForecast(){
+        async function loadForecast() {
 
-const res=await fetch("/revenue-forecast",{credentials:"include"})
-const data=await res.json()
+            const res = await fetch("/revenue-forecast", { credentials: "include" })
+            const data = await res.json()
 
-new Chart(document.getElementById("forecastChart"),{
+            new Chart(document.getElementById("forecastChart"), {
 
-type:"bar",
+                type: "bar",
 
-data:{
-labels:[data.forecast_month],
-datasets:[{
-label:"Predicted Revenue",
-data:[data.forecast_revenue]
-}]
-}
+                data: {
+                    labels: [data.forecast_month],
+                    datasets: [{
+                        label: "Predicted Revenue",
+                        data: [data.forecast_revenue]
+                    }]
+                }
 
-})
+            })
 
-}
+        }
 
 
 
-/* PROFIT ALERT */
+        /* PROFIT ALERT */
 
-async function loadAlert(){
+        async function loadAlert() {
 
-const res=await fetch("/profit-alert",{credentials:"include"})
-const data=await res.json()
+            const res = await fetch("/profit-alert", { credentials: "include" })
+            const data = await res.json()
 
-if(data.alert){
+            if (data.alert) {
 
-const box=document.getElementById("alertBox")
+                const box = document.getElementById("alertBox")
 
-box.style.display="block"
+                box.style.display = "block"
 
-box.innerText=data.message
+                box.innerText = data.message
 
-}
+            }
 
-}
+        }
 
 
-/* INIT */
+        /* INIT */
 
-loadAnalytics()
-loadMargin()
-loadForecast()
-loadAlert()
+        loadAnalytics()
+        loadMargin()
+        loadForecast()
+        loadAlert()
 
-</script>
+    </script>
 
 </body>
 
 </html>
-
-
-
 
