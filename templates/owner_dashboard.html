@@ -205,6 +205,32 @@
                 <li>Loading insights...</li>
             </ul>
         </div>
+
+        <div class="dashboard-card">
+            <h3>Late Payment Alerts</h3>
+            <ul id="lateAlerts"></ul>
+        </div>
+
+        <div class="dashboard-card">
+            <h3>Client Growth Opportunities</h3>
+            <ul id="growthClients"></ul>
+        </div>
+
+        <div class="dashboard-card">
+            <h3>Client Growth Opportunities</h3>
+            <ul id="growthClients"></ul>
+        </div>
+
+        <div class="dashboard-card">
+            <h3>Client Concentration Risk</h3>
+            <p id="clientRisk"></p>
+        </div>
+
+        <div class="dashboard-card">
+            <h3>Client Targeting Engine</h3>
+            <ul id="clientTargets"></ul>
+        </div>
+
     </div>
     <script>
 
@@ -306,6 +332,120 @@
             })
         }
 
+        /* Late Payment Alerts */
+        async function loadLatePayments() {
+
+            const res = await fetch("/late-payment-alerts")
+            const data = await res.json()
+
+            const list = document.getElementById("lateAlerts")
+            list.innerHTML = ""
+
+            data.alerts.forEach(a => {
+
+                const li = document.createElement("li")
+
+                li.textContent = `${a.party} invoice ${a.invoice} overdue ${a.days} days (R ${a.amount})`
+
+                list.appendChild(li)
+
+            })
+
+        }
+
+        /* Client Growth opportunities */
+        async function loadGrowthClients() {
+
+            const res = await fetch("/client-growth-opportunities")
+            const data = await res.json()
+
+            const list = document.getElementById("growthClients")
+            list.innerHTML = ""
+
+            data.clients.forEach(c => {
+
+                const li = document.createElement("li")
+
+                li.textContent = `${c.client} growing ${c.growth}%`
+
+                list.appendChild(li)
+
+            })
+
+        }
+
+        /* High Profit Clients */
+        async function loadProfitClients() {
+
+            const res = await fetch("/high-profit-clients")
+            const data = await res.json()
+
+            const list = document.getElementById("profitClients")
+            list.innerHTML = ""
+
+            data.clients.forEach(c => {
+
+                const li = document.createElement("li")
+
+                li.textContent = `${c.party} profit R ${c.total_profit}`
+
+                list.appendChild(li)
+
+            })
+
+        }
+
+        /*Client Concentartion Risk */
+        async function loadClientRisk() {
+
+            const res = await fetch("/client-concentration-risk")
+            const data = await res.json()
+
+            const box = document.getElementById("clientRisk")
+
+            if (data.share > 40) {
+
+                box.innerHTML = `⚠ ${data.client} generates ${data.share}% of revenue`
+
+            } else {
+
+                box.innerHTML = `Client concentration healthy`
+
+            }
+
+        }
+
+        /* client targeting */
+        async function loadClientTargets() {
+
+            const res = await fetch("/ai-client-targeting")
+
+            const data = await res.json()
+
+            const list = document.getElementById("clientTargets")
+
+            list.innerHTML = ""
+
+            data.targets.forEach(t => {
+
+                const li = document.createElement("li")
+
+                li.textContent = t.message
+
+                if (t.type === "growth") {
+                    li.style.color = "green"
+                }
+
+                if (t.type === "decline") {
+                    li.style.color = "red"
+                }
+
+                list.appendChild(li)
+
+            })
+
+        }
+
         /* INIT */
         loadAnalytics()
         loadMargin()
@@ -313,10 +453,14 @@
         loadCashflow()
         loadAlert()
         loadInsights()
+        loadLatePayments()
+        loadGrowthClients()
+        loadProfitClients()
+        loadClientRisk()
+        loadClientTargets()
 
     </script>
 </body>
 
 </html>
-
 

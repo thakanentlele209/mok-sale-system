@@ -838,6 +838,112 @@ def add_party(name:str):
 
  return {"status":"added","party":name}
 
+@app.get("/late-payment-alerts")
+def late_payment_alerts(request: Request):
+
+    if not require_role(request, ["owner","accounts"]):
+        return {"error":"permission denied"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT party, invoice_no, sale_date, client_charge
+    FROM sales
+    WHERE paid_status != 'Paid'
+    AND sale_date IS NOT NULL
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    if not rows:
+        return {"alerts":[]}
+
+    df = pd.DataFrame(rows)
+
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
+
+    df["days"] = (pd.Timestamp.today() - df["sale_date"]).dt.days
+
+    late = df[df["days"] > 30]
+
+    alerts = []
+
+    for _, row in late.iterrows():
+
+        alerts.append({
+            "party": row["party"],
+            "invoice": row["invoice_no"],
+            "days": int(row["days"]),
+            "amount": float(row["client_charge"])
+        })
+
+    return {"alerts": alerts}
+
+
+
+@app.get("/client-growth-opportunities")
+def client_growth_opportunities(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return {"error":"owner only"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT party, sale_date, client_charge
+    FROM sales
+    WHERE sale_date IS NOT NULL
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    if not rows:
+        return {"clients":[]}
+
+    df = pd.DataFrame(rows)
+
+    df["sale_date"] = pd.to_datetime(df["sale_date"])
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
+
+    df["month"] = df["sale_date"].dt.to_period("M")
+
+    grouped = df.groupby(["party","month"])["client_charge"].sum().reset_index()
+
+    growth_clients = []
+
+    for client in grouped["party"].unique():
+
+        client_data = grouped[grouped["party"] == client]
+
+        if len(client_data) < 2:
+            continue
+
+        last = client_data.iloc[-1]["client_charge"]
+        prev = client_data.iloc[-2]["client_charge"]
+
+        if prev > 0:
+
+            growth = ((last - prev) / prev) * 100
+
+            if growth > 20:
+
+                growth_clients.append({
+                    "client": client,
+                    "growth": round(growth,1)
+                })
+
+    return {"clients": growth_clients}
+
+
 # ---------------- OWNER ANALYTICS ----------------
 @app.get("/owner-analytics")
 def owner_analytics(request: Request):
@@ -906,6 +1012,137 @@ def owner_analytics(request: Request):
     }
 
 
+#-------------High Profit Clients----------------
+
+@app.get("/high-profit-clients")
+def high_profit_clients(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return {"error":"owner only"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT party, SUM(profit) as total_profit
+    FROM sales
+    GROUP BY party
+    ORDER BY total_profit DESC
+    LIMIT 5
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return {"clients": rows}
+
+#-------------Client Concentration Risk------
+@app.get("/client-concentration-risk")
+def client_concentration_risk(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return {"error":"owner only"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT party, SUM(client_charge) as revenue
+    FROM sales
+    GROUP BY party
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    if not rows:
+        return {"risk":None}
+
+    df = pd.DataFrame(rows)
+
+    total = df["revenue"].sum()
+
+    df["share"] = (df["revenue"] / total) * 100
+
+    top_client = df.sort_values("share", ascending=False).iloc[0]
+
+    return {
+        "client": top_client["party"],
+        "share": round(top_client["share"],1)
+    }
+
+#------------Client Target Engine----
+@app.get("/ai-client-targeting")
+def ai_client_targeting(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return {"error":"owner only"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT party, sale_date, client_charge
+    FROM sales
+    WHERE sale_date IS NOT NULL
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    if not rows:
+        return {"targets":[]}
+
+    df = pd.DataFrame(rows)
+
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
+
+    df["month"] = df["sale_date"].dt.to_period("M")
+
+    grouped = df.groupby(["party","month"])["client_charge"].sum().reset_index()
+
+    insights = []
+
+    for client in grouped["party"].unique():
+
+        client_data = grouped[grouped["party"] == client]
+
+        if len(client_data) < 2:
+            continue
+
+        prev = client_data.iloc[-2]["client_charge"]
+        last = client_data.iloc[-1]["client_charge"]
+
+        if prev == 0:
+            continue
+
+        change = ((last - prev) / prev) * 100
+
+        if change > 25:
+
+            insights.append({
+                "client": client,
+                "type": "growth",
+                "message": f"{client} shipments growing {round(change,1)}%. Target for bigger contract."
+            })
+
+        elif change < -25:
+
+            insights.append({
+                "client": client,
+                "type": "decline",
+                "message": f"{client} shipments declining {round(abs(change),1)}%. Risk of losing client."
+            })
+
+    return {"targets": insights}
+
 
 
 if __name__=="__main__":
@@ -921,4 +1158,5 @@ if __name__=="__main__":
 
 
 
+ 
  
