@@ -24,6 +24,49 @@
             margin-bottom: 12px;
         }
 
+        /* TOP BAR */
+
+        .topbar {
+            background: #1773d6;
+            color: white;
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-section img {
+            height: 42px;
+        }
+
+        .platform-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .right-menu {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .right-menu button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #2e7d32;
+            color: white;
+            font-weight: 500;
+        }
+
         .card {
             background: white;
             padding: 22px;
@@ -129,14 +172,53 @@
             margin-top: 6px;
             color: #0d47a1;
         }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+            margin-top: 15px;
+        }
+
+        .dashboard-grid canvas {
+            height: 260px !important;
+            background: white;
+            border-radius: 10px;
+            padding: 12px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        }
     </style>
 </head>
 
 <body>
 
-    <img src="/static/logo.png" class="logo">
+    <div class="topbar">
 
-    <h2>Mok Transport Internal Sales System</h2>
+        <div class="logo-section">
+
+            <img src="/static/logo.png">
+
+            <div class="platform-title">
+                Mok Transports Internal Finance System
+            </div>
+
+        </div>
+
+        <div class="right-menu">
+
+            <div id="datetime"></div>
+
+            <button onclick="window.location='/owner-dashboardd'">
+                Invoice/Tax Dashboard...
+            </button>
+
+            <button onclick="window.location='/logout'">
+                Logout
+            </button>
+
+        </div>
+
+    </div>
 
     <div class="card">
 
@@ -152,7 +234,7 @@
             </select>
 
             <input id="newParty" placeholder="Add New Client">
-            <button type="button" onclick="addParty()">Add Client</button>
+            <button type="button" onclick="addParty()">Add Party/Company</button>
 
             Supplier:
             <select id="supplier">
@@ -265,6 +347,7 @@
             <canvas id="receivableChart"></canvas>
             <canvas id="supplierChart"></canvas>
             <canvas id="clientChart"></canvas>
+            <canvas id="cashflowTrend"></canvas>
 
         </div>
 
@@ -281,6 +364,17 @@
         let receivableChart = null
         let supplierChart = null
         let clientChart = null
+
+        function updateTime() {
+
+            const now = new Date()
+
+            document.getElementById("datetime").innerText =
+                now.toLocaleDateString() + " " + now.toLocaleTimeString()
+
+        }
+
+        setInterval(updateTime, 1000)
 
         async function loadKPIs() {
 
@@ -536,6 +630,59 @@
 
         }
 
+        async function loadCashflowTrend() {
+
+            const res = await fetch("/sales")
+            const data = await res.json()
+
+            const monthly = {}
+
+            data.forEach(row => {
+
+                if (!row.sale_date) return
+
+                const month = row.sale_date.substring(0, 7)
+
+                if (!monthly[month]) {
+                    monthly[month] = { revenue: 0, cost: 0 }
+                }
+
+                monthly[month].revenue += Number(row.client_charge || 0)
+                monthly[month].cost += Number(row.supplier_cost || 0)
+
+            })
+
+            const labels = Object.keys(monthly)
+
+            const revenue = labels.map(m => monthly[m].revenue)
+            const cost = labels.map(m => monthly[m].cost)
+
+            new Chart(document.getElementById("cashflowTrend"), {
+
+                type: "line",
+
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: "Client Revenue",
+                            data: revenue,
+                            borderWidth: 3,
+                            tension: 0.3
+                        },
+                        {
+                            label: "Supplier Cost",
+                            data: cost,
+                            borderWidth: 3,
+                            tension: 0.3
+                        }
+                    ]
+                }
+
+            })
+
+        }
+
         async function sendReport() {
 
             const month = document.getElementById("reportMonth").value
@@ -578,6 +725,7 @@
         loadSupplierPerformance()
         loadTopClients()
         loadKPIs()
+        loadCashflowTrend()
 
     </script>
 
