@@ -620,6 +620,12 @@ def profit_margin_trend(request: Request):
 
     df["margin"] = (df["client_charge"] - df["supplier_cost"]) / df["client_charge"] * 100
 
+    df["margin"] = np.where(
+    df["client_charge"] > 0,
+    ((df["client_charge"] - df["supplier_cost"]) / df["client_charge"]) * 100,0
+                                                                              
+    )
+
     monthly = (
         df.groupby(df["sale_date"].dt.to_period("M"))["margin"]
         .mean()
@@ -671,6 +677,143 @@ def profit_alert(request: Request):
         "message": "Profit margins healthy"
     }
 
+
+
+@app.get("/ai-business-insights")
+def ai_business_insights(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return {"error":"owner only"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT sale_date, client_charge, supplier_cost, profit FROM sales")
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    if not rows:
+        return {"insights":["No sales data available"]}
+
+    df = pd.DataFrame(rows)
+
+    df["sale_date"] = pd.to_datetime(df["sale_date"])
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
+    df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
+    df["supplier_cost"] = pd.to_numeric(df["supplier_cost"], errors="coerce").fillna(0)
+
+    insights = []
+
+    total_revenue = df["client_charge"].sum()
+    total_profit = df["profit"].sum()
+
+    margin = (total_profit / total_revenue) * 100 if total_revenue else 0
+
+    if margin < 20:
+        insights.append("Profit margins are below 20%. Review supplier costs.")
+
+    monthly = df.groupby(df["sale_date"].dt.to_period("M"))["client_charge"].sum()
+
+    if len(monthly) > 1:
+        growth = ((monthly.iloc[-1] - monthly.iloc[-2]) / monthly.iloc[-2]) * 100
+
+        if growth > 10:
+            insights.append(f"Revenue increased {growth:.1f}% last month.")
+        elif growth < -10:
+            insights.append(f"Revenue dropped {abs(growth):.1f}% last month.")
+
+    top_client = df.groupby("party")["client_charge"].sum().idxmax()
+
+    insights.append(f"Top revenue client is {top_client}")
+
+    return {"insights": insights}
+
+
+@app.get("/cashflow-forecast")
+def cashflow_forecast(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return {"error":"owner only"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT sale_date, client_charge
+    FROM sales
+    WHERE sale_date IS NOT NULL
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    df = pd.DataFrame(rows)
+
+    df["sale_date"] = pd.to_datetime(df["sale_date"])
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce")
+
+    monthly = (
+        df.groupby(df["sale_date"].dt.to_period("M"))["client_charge"]
+        .sum()
+        .reset_index()
+    )
+
+    monthly["index"] = range(len(monthly))
+
+    x = monthly["index"]
+    y = monthly["client_charge"]
+
+    slope, intercept = np.polyfit(x, y, 1)
+
+    forecasts = {}
+
+    for i in range(1,4):
+
+        month = str(monthly.iloc[-1]["sale_date"] + i)
+
+        forecasts[month] = float(slope*(len(monthly)+i)+intercept)
+
+    return forecasts
+
+@app.get("/logistics-profit-map")
+def logistics_profit_map(request: Request):
+
+    if not require_role(request, ["owner"]):
+        return {"error":"owner only"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT supplier, party, SUM(profit) as profit
+    FROM sales
+    GROUP BY supplier, party
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    df = pd.DataFrame(rows)
+
+    result = {}
+
+    for _, row in df.iterrows():
+
+        supplier = row["supplier"]
+
+        if supplier not in result:
+            result[supplier] = {}
+
+        result[supplier][row["party"]] = float(row["profit"])
+
+    return result
 
 # ---------------- OWNER ANALYTICS ----------------
 @app.get("/owner-analytics")
