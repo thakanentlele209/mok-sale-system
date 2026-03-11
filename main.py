@@ -815,6 +815,15 @@ def logistics_profit_map(request: Request):
 
     return result
 
+
+@app.post("/add-party")
+def add_party(name:str):
+
+ if name and name not in PARTIES:
+  PARTIES.append(name)
+
+ return {"status":"added","party":name}
+
 # ---------------- OWNER ANALYTICS ----------------
 @app.get("/owner-analytics")
 def owner_analytics(request: Request):
@@ -881,6 +890,9 @@ def owner_analytics(request: Request):
         "client_profit": client_profit,
         "supplier_profit": supplier_profit
     }
+
+
+
 
 if __name__=="__main__":
 

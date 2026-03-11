@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Mok Transport Internal Sales System</title>
+    <title>Mok Transports Internal Sales System</title>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -151,6 +151,9 @@
                 {% endfor %}
             </select>
 
+            <input id="newParty" placeholder="Add New Client">
+            <button type="button" onclick="addParty()">Add Client</button>
+
             Supplier:
             <select id="supplier">
                 {% for s in suppliers %}
@@ -199,6 +202,10 @@
 
     <div class="card">
         <h3>Sales Records</h3>
+
+        <input id="searchBox" placeholder="Search Invoice / Order No">
+        <button onclick="searchSales()">Search</button>
+        <button onclick="loadSales()">Reset</button>
 
         <table id="table">
             <thead>
@@ -382,6 +389,32 @@
         }
 
 
+        async function addParty() {
+
+            const name = document.getElementById("newParty").value
+
+            if (!name) { alert("Enter client name"); return }
+
+            await fetch(`/add-party?name=${name}`, { method: "POST" })
+
+            const select = document.getElementById("party")
+
+            const option = document.createElement("option")
+
+            option.value = name
+            option.text = name
+
+            select.appendChild(option)
+
+            select.value = name
+
+            document.getElementById("newParty").value = ""
+
+            alert("Client added")
+
+        }
+
+
         async function loadSales() {
 
             const res = await fetch("/sales")
@@ -516,6 +549,28 @@
 
         }
 
+
+        function searchSales() {
+
+            const value = document.getElementById("searchBox").value.toLowerCase()
+
+            const rows = document.querySelectorAll("#table tbody tr")
+
+            rows.forEach(row => {
+
+                const order = row.children[3].innerText.toLowerCase()
+                const invoice = row.children[4].innerText.toLowerCase()
+
+                if (order.includes(value) || invoice.includes(value)) {
+                    row.style.display = ""
+                } else {
+                    row.style.display = "none"
+                }
+
+            })
+
+        }
+
         loadSales()
         loadMonthlyDashboard()
         loadPartyDashboard()
@@ -529,5 +584,4 @@
 </body>
 
 </html>
-
 
