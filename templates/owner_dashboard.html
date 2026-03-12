@@ -142,6 +142,61 @@
         .ai-panel ul {
             padding-left: 18px;
         }
+
+        /* The main wrapper to hold all cards */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            background-color: #f4f7f6;
+            /* Light grey background like the screenshots */
+        }
+
+        /* Individual Card Styling */
+        .dashboard-card {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dashboard-card h3 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #333;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        /* Styling the lists inside cards */
+        .dashboard-card ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .dashboard-card li {
+            padding: 8px 0;
+            border-bottom: 1px solid #f9f9f9;
+            font-size: 0.9rem;
+        }
+
+        /* Color coding for the 'Targeting Engine' based on your screenshot */
+        .growth-text {
+            color: #28a745;
+        }
+
+        /* Green */
+        .decline-text {
+            color: #dc3545;
+        }
+
+        /* Red */
     </style>
 </head>
 
@@ -206,29 +261,26 @@
             </ul>
         </div>
 
-        <div class="dashboard-card">
-            <h3>Late Payment Alerts</h3>
-            <ul id="lateAlerts"></ul>
-        </div>
+        <div class="dashboard-container">
+            <div class="dashboard-card">
+                <h3>Late Payment Alerts</h3>
+                <ul id="lateAlerts"></ul>
+            </div>
 
-        <div class="dashboard-card">
-            <h3>Client Growth Opportunities</h3>
-            <ul id="growthClients"></ul>
-        </div>
+            <div class="dashboard-card">
+                <h3>Client Growth Opportunities</h3>
+                <ul id="growthClients"></ul>
+            </div>
 
-        <div class="dashboard-card">
-            <h3>Client Growth Opportunities</h3>
-            <ul id="growthClients"></ul>
-        </div>
+            <div class="dashboard-card">
+                <h3>Client Concentration Risk</h3>
+                <p id="clientRisk"></p>
+            </div>
 
-        <div class="dashboard-card">
-            <h3>Client Concentration Risk</h3>
-            <p id="clientRisk"></p>
-        </div>
-
-        <div class="dashboard-card">
-            <h3>Client Targeting Engine</h3>
-            <ul id="clientTargets"></ul>
+            <div class="dashboard-card">
+                <h3>Client Targeting Engine</h3>
+                <ul id="clientTargets"></ul>
+            </div>
         </div>
 
     </div>
@@ -463,4 +515,5 @@
 </body>
 
 </html>
+
 
