@@ -337,6 +337,11 @@
     </div>
 
     <div class="card">
+        <h3>Late Payment Alerts</h3>
+        <ul id="lateAlerts"></ul>
+    </div>
+
+    <div class="card">
 
         <h3>Financial Dashboard</h3>
 
@@ -385,6 +390,26 @@
             document.getElementById("kpiProfit").innerText = "R " + Number(data.total_profit || 0).toLocaleString()
             document.getElementById("kpiPaid").innerText = "R " + Number(data.paid_total || 0).toLocaleString()
             document.getElementById("kpiOutstanding").innerText = "R " + Number(data.outstanding_total || 0).toLocaleString()
+
+        }
+
+        async function loadLatePayments() {
+
+            const res = await fetch("/late-payment-alerts")
+            const data = await res.json()
+
+            const list = document.getElementById("lateAlerts")
+            list.innerHTML = ""
+
+            data.alerts.forEach(a => {
+
+                const li = document.createElement("li")
+
+                li.textContent = `${a.party} invoice ${a.invoice} overdue ${a.days} days (R ${a.amount})`
+
+                list.appendChild(li)
+
+            })
 
         }
 
@@ -726,10 +751,12 @@
         loadTopClients()
         loadKPIs()
         loadCashflowTrend()
+        loadLatePayments()
 
     </script>
 
 </body>
 
 </html>
+
 
