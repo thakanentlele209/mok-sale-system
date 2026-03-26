@@ -737,6 +737,54 @@
 
         }
 
+        async function generateStatement() {
+
+            const party = document.getElementById("statementParty").value
+            const month = document.getElementById("statementMonth").value
+
+            const res = await fetch(`/client-statement?party=${party}&month=${month}`)
+            const data = await res.json()
+
+            if (data.error) {
+                alert(data.error)
+                return
+            }
+
+            let html = `
+    <h4>${data.party} - ${data.month}</h4>
+    <table>
+    <tr>
+        <th>Invoice</th>
+        <th>Date</th>
+        <th>Amount</th>
+        <th>Profit</th>
+        <th>Status</th>
+    </tr>
+    `
+
+            data.invoices.forEach(i => {
+                html += `
+        <tr>
+            <td>${i.invoice_no}</td>
+            <td>${i.sale_date}</td>
+            <td>R ${i.client_charge}</td>
+            <td>R ${i.profit}</td>
+            <td>${i.paid_status}</td>
+        </tr>
+        `
+            })
+
+            html += `</table>
+    <br>
+    <b>Total Revenue:</b> R ${data.total_revenue} <br>
+    <b>Total Profit:</b> R ${data.total_profit} <br>
+    <b>Paid:</b> R ${data.paid} <br>
+    <b>Outstanding:</b> R ${data.outstanding}
+    `
+
+            document.getElementById("statementResult").innerHTML = html
+        }
+
 
         async function searchSales() {
 
