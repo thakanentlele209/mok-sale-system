@@ -126,7 +126,11 @@ def require_role(request:Request,roles):
 @app.get("/login",response_class=HTMLResponse)
 def login_page(request:Request):
 
-    return templates.TemplateResponse("login.html",{"request":request})
+    return templates.TemplateResponse(
+    request=request,
+    name="login.html",
+    context={}
+)
 
 @app.post("/login")
 def login(request:Request,username:str=Form(...),password:str=Form(...)):
@@ -142,9 +146,10 @@ def login(request:Request,username:str=Form(...),password:str=Form(...)):
         return RedirectResponse("/",302)
 
     return templates.TemplateResponse(
-        "login.html",
-        {"request":request,"error":"Invalid login"}
-    )
+    request=request,
+    name="login.html",
+    context={"error": "Invalid login"}
+)
 
 @app.get("/logout")
 def logout(request:Request):
@@ -1215,7 +1220,6 @@ if __name__=="__main__":
         host="0.0.0.0",
         port=port
     )
-
 
 
 
