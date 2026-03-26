@@ -336,6 +336,22 @@
 
     </div>
 
+    <br><br>
+
+    <h3>Client Monthly Statement</h3>
+
+    <select id="statementParty">
+        {% for p in parties %}
+        <option value="{{p}}">{{p}}</option>
+        {% endfor %}
+    </select>
+
+    <input type="month" id="statementMonth">
+
+    <button onclick="generateStatement()">Generate Statement</button>
+
+    <div id="statementResult"></div>
+
     <div class="card">
         <h3>Late Payment Alerts</h3>
         <ul id="lateAlerts"></ul>
@@ -722,23 +738,34 @@
         }
 
 
-        function searchSales() {
+        async function searchSales() {
 
-            const value = document.getElementById("searchBox").value.toLowerCase()
+            const value = document.getElementById("searchBox").value
 
-            const rows = document.querySelectorAll("#table tbody tr")
+            const res = await fetch(`/search-sales?q=${value}`)
+            const data = await res.json()
 
-            rows.forEach(row => {
+            const tbody = document.querySelector("#table tbody")
+            tbody.innerHTML = ""
 
-                const order = row.children[3].innerText.toLowerCase()
-                const invoice = row.children[4].innerText.toLowerCase()
+            data.forEach(row => {
 
-                if (order.includes(value) || invoice.includes(value)) {
-                    row.style.display = ""
-                } else {
-                    row.style.display = "none"
-                }
-
+                tbody.innerHTML += `
+        <tr>
+        <td>${row.id}</td>
+        <td>${row.party}</td>
+        <td>${row.supplier}</td>
+        <td>${row.order_no}</td>
+        <td>${row.invoice_no}</td>
+        <td>${formatWaybills(row.waybill)}</td>
+        <td>${row.paid_status}</td>
+        <td>${row.sale_date}</td>
+        <td>${row.total_invoice}</td>
+        <td>${row.profit}</td>
+        <td><button class="edit-btn" onclick="editSale(${row.id})">Edit</button></td>
+        <td><button class="delete-btn" onclick="deleteSale(${row.id})">Delete</button></td>
+        </tr>
+        `
             })
 
         }
@@ -758,5 +785,4 @@
 </body>
 
 </html>
-
 

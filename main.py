@@ -309,6 +309,67 @@ def get_sales():
 
     return rows
 
+
+# ----------------Search SALES  ----------------
+@app.get("/search-sales")
+def search_sales(q: str = ""):
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    query = """
+    SELECT * FROM sales
+    WHERE
+        LOWER(party) LIKE %s OR
+        LOWER(invoice_no) LIKE %s OR
+        LOWER(order_no) LIKE %s
+    ORDER BY id DESC
+    """
+
+    search = f"%{q.lower()}%"
+
+    cur.execute(query, (search, search, search))
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
+# ---------------- Client Statement ----------------
+@app.get("/client-statement")
+def client_statement(party: str, month: str):
+
+    conn = get_conn()
+
+    df = pd.read_sql(f"""
+        SELECT invoice_no, sale_date, client_charge, profit, paid_status
+        FROM sales
+        WHERE party = '{party}'
+        AND TO_CHAR(sale_date,'YYYY-MM') = '{month}'
+        ORDER BY sale_date
+    """, conn)
+
+    conn.close()
+
+    if df.empty:
+        return {"error": "No data found"}
+
+    total_revenue = df["client_charge"].sum()
+    total_profit = df["profit"].sum()
+    paid = df[df["paid_status"] == "Paid"]["client_charge"].sum()
+    outstanding = df[df["paid_status"] != "Paid"]["client_charge"].sum()
+
+    return {
+        "party": party,
+        "month": month,
+        "invoices": df.to_dict(orient="records"),
+        "total_revenue": float(total_revenue),
+        "total_profit": float(total_profit),
+        "paid": float(paid),
+        "outstanding": float(outstanding)
+    }
+
 # ---------------- DASHBOARD KPIS ----------------
 
 @app.get("/dashboard-kpis")
