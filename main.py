@@ -165,15 +165,17 @@ def home(request:Request):
     if not request.session.get("user"):
         return RedirectResponse("/login")
 
+
     return templates.TemplateResponse(
-        "index.html",
-        {
-            "request":request,
-            "parties":PARTIES,
-            "suppliers":SUPPLIERS,
-            "role":request.session.get("role")
-        }
-    )
+       request=request,
+       name="index.html",
+       context={
+          "parties": PARTIES,
+          "suppliers": SUPPLIERS,
+          "role": request.session.get("role")
+               }
+    )   
+
 
 # ---------------- RECORD SALE ----------------
 
@@ -1220,6 +1222,7 @@ if __name__=="__main__":
         host="0.0.0.0",
         port=port
     )
+
 
 
 
