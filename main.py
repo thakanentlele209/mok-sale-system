@@ -361,6 +361,10 @@ def client_statement(party: str, month: str):
 
     conn.close()
 
+    print("PARTY:", party)
+    print("MONTH:", month)
+    print("ROWS FOUND:", len(df))
+
 
 
 # ---------------- DASHBOARD KPIS ----------------
