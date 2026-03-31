@@ -349,33 +349,19 @@ def client_statement(party: str, month: str):
 
     conn = get_conn()
 
-    df = pd.read_sql(f"""
+    query = """
         SELECT invoice_no, sale_date, client_charge, profit, paid_status
         FROM sales
-        WHERE party = '{party}'
-        AND TO_CHAR(sale_date,'YYYY-MM') = '{month}'
+        WHERE LOWER(party) = LOWER(%s)
+        AND TO_CHAR(sale_date,'YYYY-MM') = %s
         ORDER BY sale_date
-    """, conn)
+    """
+
+    df = pd.read_sql(query, conn, params=(party, month))
 
     conn.close()
 
-    if df.empty:
-        return {"error": "No data found"}
 
-    total_revenue = df["client_charge"].sum()
-    total_profit = df["profit"].sum()
-    paid = df[df["paid_status"] == "Paid"]["client_charge"].sum()
-    outstanding = df[df["paid_status"] != "Paid"]["client_charge"].sum()
-
-    return {
-        "party": party,
-        "month": month,
-        "invoices": df.to_dict(orient="records"),
-        "total_revenue": float(total_revenue),
-        "total_profit": float(total_profit),
-        "paid": float(paid),
-        "outstanding": float(outstanding)
-    }
 
 # ---------------- DASHBOARD KPIS ----------------
 
@@ -556,7 +542,7 @@ def send_monthly_report(month: str, recipient: str):
     PASSWORD = os.getenv("EMAIL_PASS")
 
     msg = EmailMessage()
-    msg["Subject"] = f"Mok Transport Sales Report {month}"
+    msg["Subject"] = f"Mok Transports Sales Report {month}"
     msg["From"] = EMAIL
     msg["To"] = recipient
 
@@ -654,9 +640,10 @@ def owner_dashboard(request:Request):
     conn.close()
 
     return templates.TemplateResponse(
-        "owner_dashboard.html",
-        {"request":request,"top_client":top_client}
-    )
+    request=request,
+    name="owner_dashboard.html",
+    context={"top_client": top_client}
+     )
 
 
 #------------Profit Margin Trend-------------
