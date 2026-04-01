@@ -283,62 +283,6 @@
     </div>
 
     <div class="card">
-        <h3>Sales Records</h3>
-
-        <input id="searchBox" placeholder="Search Party Name / Invoice">
-        <button onclick="searchSales()">Search</button>
-        <button onclick="loadSales()">Reset</button>
-
-        <table id="table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Party</th>
-                    <th>Supplier</th>
-                    <th>Order</th>
-                    <th>Invoice</th>
-                    <th>Waybill</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Total</th>
-                    <th>Profit</th>
-                    <th>Edit</th>
-                    <th>Delete</th>
-                </tr>
-            </thead>
-
-            <tbody></tbody>
-
-        </table>
-    </div>
-
-    <div class="kpi-grid">
-
-        <div class="kpi-card">
-            <h3>Total Sales</h3>
-            <p id="kpiSales">R0</p>
-        </div>
-
-        <div class="kpi-card">
-            <h3>Total Profit</h3>
-            <p id="kpiProfit">R0</p>
-        </div>
-
-        <div class="kpi-card">
-            <h3>Paid Revenue</h3>
-            <p id="kpiPaid">R0</p>
-        </div>
-
-        <div class="kpi-card">
-            <h3>Outstanding</h3>
-            <p id="kpiOutstanding">R0</p>
-        </div>
-
-    </div>
-
-    <br><br>
-
-    <div class="card">
 
         <h3>Client Monthly Statement</h3>
 
@@ -367,6 +311,63 @@
         <br><br>
 
         <div id="statementResult"></div>
+
+        <div class="card">
+            <h3>Sales Records</h3>
+
+            <input id="searchBox" placeholder="Search Party Name / Invoice">
+            <button onclick="searchSales()">Search</button>
+            <button onclick="loadSales()">Reset</button>
+
+            <table id="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Party</th>
+                        <th>Supplier</th>
+                        <th>Order</th>
+                        <th>Invoice</th>
+                        <th>Waybill</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Total</th>
+                        <th>Profit</th>
+                        <th>Edit</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+
+                <tbody></tbody>
+
+            </table>
+        </div>
+
+        <div class="kpi-grid">
+
+            <div class="kpi-card">
+                <h3>Total Sales</h3>
+                <p id="kpiSales">R0</p>
+            </div>
+
+            <div class="kpi-card">
+                <h3>Total Profit</h3>
+                <p id="kpiProfit">R0</p>
+            </div>
+
+            <div class="kpi-card">
+                <h3>Paid Revenue</h3>
+                <p id="kpiPaid">R0</p>
+            </div>
+
+            <div class="kpi-card">
+                <h3>Outstanding</h3>
+                <p id="kpiOutstanding">R0</p>
+            </div>
+
+        </div>
+
+        <br><br>
+
 
     </div>
 
@@ -778,7 +779,7 @@
     <div id="printArea" style="background:white;padding:25px;border-radius:10px">
 
         <div style="display:flex;justify-content:space-between;align-items:center">
-            <img src="/static/logo.png" style="height:60px">
+            <<img src="${window.location.origin}/static/logo.png" style="height:60px;">" style="height:60px">
             <div style="text-align:right">
                 <h2 style="color:#0d47a1;margin:0">CLIENT STATEMENT</h2>
                 <h3 style="margin:0">${data.party}</h3>
@@ -872,40 +873,97 @@
 
         function printStatement() {
 
-            const area = document.getElementById("printArea")
+            const area = document.getElementById("printArea");
 
-            if (!area) {
-                alert("Please generate statement first")
-                return
+            if (!area || area.innerHTML.trim() === "") {
+                alert("Please generate statement first");
+                return;
             }
 
-            let content = area.innerHTML.replace(
-                '/static/logo.png',
-                window.location.origin + '/static/logo.png'
-            )
+            const content = area.innerHTML;
 
-            const win = window.open("", "", "width=900,height=700")
+            const win = window.open("", "", "width=900,height=700");
 
             win.document.write(`
         <html>
         <head>
             <title>Statement</title>
             <style>
-                body { font-family: Arial; padding:20px }
-                table { width:100%; border-collapse:collapse }
-                th,td { border:1px solid #ccc; padding:8px }
-                th { background:#0d47a1; color:white }
+                body { font-family: Arial; padding:20px; color:#000 }
+
+                .header {
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    margin-bottom:20px;
+                }
+
+                .left-header {
+                    display:flex;
+                    flex-direction:column;
+                }
+
+                .company-name {
+                    font-weight:bold;
+                    font-size:16px;
+                    margin-top:5px;
+                }
+
+                .title {
+                    font-size:20px;
+                    font-weight:bold;
+                    color:#0d47a1;
+                }
+
+                table {
+                    width:100%;
+                    border-collapse:collapse;
+                    margin-top:20px;
+                }
+
+                th, td {
+                    border:1px solid #000;
+                    padding:8px;
+                    text-align:left;
+                }
+
+                th {
+                    background:#fff;
+                    font-weight:bold;
+                    color:#000;
+                }
+
+                .totals-box {
+                    margin-top:20px;
+                    float:right;
+                    border:1px solid #000;
+                    padding:10px;
+                    width:250px;
+                }
             </style>
         </head>
-        <body>${content}</body>
+
+        <body>
+
+            <div class="header">
+                <div class="left-header">
+                    <img src="${window.location.origin}/static/logo.png" style="height:60px;">
+                    <div class="company-name">Mok Transports Pty Ltd</div>
+                </div>
+
+                <div class="title">
+                    CLIENT STATEMENT
+                </div>
+            </div>
+
+            ${content}
+
+        </body>
         </html>
-    `)
+    `);
 
-            win.document.close()
-
-            setTimeout(() => {
-                win.print()
-            }, 500)
+            win.document.close();
+            win.print();
         }
 
         function exportStatementExcel() {

@@ -350,32 +350,29 @@ def search_sales(q: str = ""):
 def client_statement(party: str, month: str, view: str = "internal"):
 
     conn = get_conn()
-    cur = conn.cursor()
 
-    cur.execute("""
+    query = """
         SELECT invoice_no, sale_date, client_charge, profit, paid_status
         FROM sales
         WHERE LOWER(party) = LOWER(%s)
         AND sale_date IS NOT NULL
         AND TO_CHAR(sale_date,'YYYY-MM') = %s
         ORDER BY sale_date
-    """, (party, month))
+    """
 
-    rows = cur.fetchall()
+    df = pd.read_sql(query, conn, params=(party, month))
 
-    cur.close()
     conn.close()
 
-    if not rows:
+    if df.empty:
         return {"error": "No data found for this month"}
 
-    df = pd.DataFrame(rows)
-
-    # 🔥 Fix data types
+    # ✅ Fix data types
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
     df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce").dt.strftime("%Y-%m-%d")
 
+    # ✅ Totals
     total_revenue = df["client_charge"].sum()
     total_profit = df["profit"].sum()
     paid = df[df["paid_status"] == "Paid"]["client_charge"].sum()
@@ -383,7 +380,7 @@ def client_statement(party: str, month: str, view: str = "internal"):
 
     data = df.to_dict(orient="records")
 
-    # 🔥 Remove profit for client view
+    # ✅ Client view → remove profit
     if view == "client":
         for row in data:
             row.pop("profit", None)
@@ -391,9 +388,11 @@ def client_statement(party: str, month: str, view: str = "internal"):
     return {
         "party": party,
         "month": month,
+        "view": view,
         "invoices": data,
-        "total_revenue": float(total_revenue),
-        "total_profit": float(total_profit) if view == "internal" else 0,
+        "total_label": "Total Revenue" if view == "internal" else "Total",
+        "total_value": float(total_revenue),
+        "total_profit": float(total_profit) if view == "internal" else None,
         "paid": float(paid),
         "outstanding": float(outstanding)
     }
