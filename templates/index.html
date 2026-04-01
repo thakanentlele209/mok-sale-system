@@ -850,7 +850,16 @@
 
         function printStatement() {
 
-            const content = document.getElementById("printArea").innerHTML
+            const area = document.getElementById("printArea")
+
+            // ✅ Safety check FIRST
+            if (!area) {
+                alert("Please generate statement first")
+                return
+            }
+
+            // ✅ Then continue with your original logic
+            const content = area.innerHTML
 
             const win = window.open("", "", "width=900,height=700")
 
