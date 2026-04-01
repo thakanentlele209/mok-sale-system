@@ -1203,6 +1203,60 @@ def ai_client_targeting(request: Request):
     return {"targets": insights}
 
 
+    @app.post("/email-client-statement")
+    def email_client_statement(party: str, month: str, email: str = ""):
+
+     conn = get_conn()
+
+     query = """
+        SELECT invoice_no, sale_date, client_charge, profit, paid_status
+        FROM sales
+        WHERE LOWER(party) = LOWER(%s)
+        AND sale_date IS NOT NULL
+        AND TO_CHAR(sale_date,'YYYY-MM') = %s
+        ORDER BY sale_date
+    """
+
+     df = pd.read_sql(query, conn, params=(party, month))
+     conn.close()
+
+     if df.empty:
+        return {"error": "No data"}
+
+     file_path = f"{party}_{month}.xlsx"
+     df.to_excel(file_path, index=False)
+
+     EMAIL = os.getenv("EMAIL_USER")
+     PASSWORD = os.getenv("EMAIL_PASS")
+
+     msg = EmailMessage()
+     msg["Subject"] = f"{party} Statement {month}"
+     msg["From"] = EMAIL
+
+     recipients = ["ryan@moktransports.com"]  
+
+     if email:
+        recipients.append(email)
+
+     msg["To"] = ", ".join(recipients)
+
+     msg.set_content(f"Attached is the statement for {party} - {month}")
+
+     with open(file_path, "rb") as f:
+        msg.add_attachment(
+            f.read(),
+            maintype="application",
+            subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename=file_path
+        )
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        smtp.login(EMAIL, PASSWORD)
+        smtp.send_message(msg)
+
+    return {"message": "Statement emailed successfully"}
+
+
 
 if __name__=="__main__":
 
