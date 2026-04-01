@@ -1203,12 +1203,14 @@ def ai_client_targeting(request: Request):
     return {"targets": insights}
 
 
-    @app.post("/email-client-statement")
-    def email_client_statement(party: str, month: str, email: str = ""):
+#------------Client Statements----
 
-     conn = get_conn()
+@app.get("/export-client-statement")
+def export_client_statement(party: str, month: str):
 
-     query = """
+    conn = get_conn()
+
+    query = """
         SELECT invoice_no, sale_date, client_charge, profit, paid_status
         FROM sales
         WHERE LOWER(party) = LOWER(%s)
@@ -1217,32 +1219,63 @@ def ai_client_targeting(request: Request):
         ORDER BY sale_date
     """
 
-     df = pd.read_sql(query, conn, params=(party, month))
-     conn.close()
+    df = pd.read_sql(query, conn, params=(party, month))
+    conn.close()
 
-     if df.empty:
+    if df.empty:
         return {"error": "No data"}
 
-     file_path = f"{party}_{month}.xlsx"
-     df.to_excel(file_path, index=False)
+    file_path = f"{party}_{month}.xlsx"
+    df.to_excel(file_path, index=False)
 
-     EMAIL = os.getenv("EMAIL_USER")
-     PASSWORD = os.getenv("EMAIL_PASS")
+    return FileResponse(
+        file_path,
+        filename=file_path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
-     msg = EmailMessage()
-     msg["Subject"] = f"{party} Statement {month}"
-     msg["From"] = EMAIL
+#------------Email Statements----
 
-     recipients = ["ryan@moktransports.com"]  
+@app.post("/email-client-statement")
+def email_client_statement(party: str, month: str, email: str = ""):
 
-     if email:
+    conn = get_conn()
+
+    query = """
+        SELECT invoice_no, sale_date, client_charge, profit, paid_status
+        FROM sales
+        WHERE LOWER(party) = LOWER(%s)
+        AND sale_date IS NOT NULL
+        AND TO_CHAR(sale_date,'YYYY-MM') = %s
+        ORDER BY sale_date
+    """
+
+    df = pd.read_sql(query, conn, params=(party, month))
+    conn.close()
+
+    if df.empty:
+        return {"error": "No data"}
+
+    file_path = f"{party}_{month}.xlsx"
+    df.to_excel(file_path, index=False)
+
+    EMAIL = os.getenv("EMAIL_USER")
+    PASSWORD = os.getenv("EMAIL_PASS")
+
+    msg = EmailMessage()
+    msg["Subject"] = f"{party} Statement {month}"
+    msg["From"] = EMAIL
+
+    recipients = ["ryan@moktransports.com"]  
+
+    if email:
         recipients.append(email)
 
-     msg["To"] = ", ".join(recipients)
+    msg["To"] = ", ".join(recipients)
 
-     msg.set_content(f"Attached is the statement for {party} - {month}")
+    msg.set_content(f"Attached is the statement for {party} - {month}")
 
-     with open(file_path, "rb") as f:
+    with open(file_path, "rb") as f:
         msg.add_attachment(
             f.read(),
             maintype="application",
@@ -1255,8 +1288,6 @@ def ai_client_targeting(request: Request):
         smtp.send_message(msg)
 
     return {"message": "Statement emailed successfully"}
-
-
 
 if __name__=="__main__":
 

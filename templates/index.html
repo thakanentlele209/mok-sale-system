@@ -338,22 +338,30 @@
 
     <br><br>
 
-    <h3>Client Monthly Statement</h3>
+    <div class="card">
 
-    <select id="statementParty">
-        {% for p in parties %}
-        <option value="{{p}}">{{p}}</option>
-        {% endfor %}
-    </select>
+        <h3>Client Monthly Statement</h3>
 
-    <input type="month" id="statementMonth">
+        <select id="statementParty">
+            {% for p in parties %}
+            <option value="{{p}}">{{p}}</option>
+            {% endfor %}
+        </select>
 
-    <button onclick="generateStatement()">Generate Statement</button>
-    <button onclick="exportStatementExcel()">Export Excel</button>
-    <button onclick="printStatement()">Download PDF</button>
-    <button onclick="emailStatement()">Email Statement</button>
+        <input type="month" id="statementMonth">
 
-    <div id="statementResult"></div>
+        <br><br>
+
+        <button onclick="generateStatement()">Generate Statement</button>
+        <button onclick="exportStatementExcel()">Export Excel</button>
+        <button onclick="printStatement()">Download PDF</button>
+        <button onclick="emailStatement()">Email Statement</button>
+
+        <br><br>
+
+        <div id="statementResult"></div>
+
+    </div>
 
     <div class="card">
         <h3>Late Payment Alerts</h3>
@@ -904,4 +912,5 @@
 </body>
 
 </html>
+
 
