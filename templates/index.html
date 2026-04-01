@@ -778,7 +778,7 @@
     <div id="printArea" style="background:white;padding:25px;border-radius:10px">
 
         <div style="display:flex;justify-content:space-between;align-items:center">
-            <<img src="${window.location.origin}/static/logo.png" style="height:60px;">" style="height:60px">
+            <img src="${window.location.origin}/static/logo.png" style="height:60px;">" style="height:60px">
             <div style="text-align:right">
                 <h2 style="color:#0d47a1;margin:0">CLIENT STATEMENT</h2>
                 <h3 style="margin:0">${data.party}</h3>
@@ -822,7 +822,7 @@
         padding:15px;
         border-radius:8px;
     ">
-        <div><b>Total Revenue:</b> R ${Number(data.total_revenue).toLocaleString()}</div>
+        <div><b>Total Revenue:</b> R ${Number(data.total_value).toLocaleString()}</div>
         ${showProfit ? `<div><b>Total Profit:</b> R ${Number(data.total_profit).toLocaleString()}</div>` : ""}
         <div><b>Paid:</b> R ${Number(data.paid).toLocaleString()}</div>
         <div><b>Outstanding:</b> R ${Number(data.outstanding).toLocaleString()}</div>
