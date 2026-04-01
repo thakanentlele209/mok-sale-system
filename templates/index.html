@@ -285,7 +285,7 @@
     <div class="card">
         <h3>Sales Records</h3>
 
-        <input id="searchBox" placeholder="Search Invoice / Order No">
+        <input id="searchBox" placeholder="Search Party Name / Invoice">
         <button onclick="searchSales()">Search</button>
         <button onclick="loadSales()">Reset</button>
 
@@ -902,14 +902,16 @@
 
             const area = document.getElementById("printArea")
 
-            // ✅ Safety check FIRST
             if (!area) {
                 alert("Please generate statement first")
                 return
             }
 
-            // ✅ Then continue with your original logic
-            const content = area.innerHTML
+            // 🔥 FIX: Replace logo path with absolute URL
+            let content = area.innerHTML.replace(
+                '/static/logo.png',
+                window.location.origin + '/static/logo.png'
+            )
 
             const win = window.open("", "", "width=900,height=700")
 
@@ -929,7 +931,11 @@
     `)
 
             win.document.close()
-            win.print()
+
+            // 🔥 ensure images load before printing
+            setTimeout(() => {
+                win.print()
+            }, 500)
         }
 
         function exportStatementExcel() {
