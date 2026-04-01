@@ -14,6 +14,8 @@ from fastapi.responses import FileResponse
 import smtplib
 from email.message import EmailMessage
 import numpy as np
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -345,7 +347,7 @@ def search_sales(q: str = ""):
 
 # ---------------- Client Statement ----------------
 @app.get("/client-statement")
-def client_statement(party: str, month: str):
+def client_statement(party: str, month: str, view: str = "internal"):
 
     conn = get_conn()
     cur = conn.cursor()
@@ -365,29 +367,33 @@ def client_statement(party: str, month: str):
     conn.close()
 
     if not rows:
-        return {"error": "No data found"}
+        return {"error": "No data found for this month"}
 
     df = pd.DataFrame(rows)
 
-    # 🔥 FIX: Force numeric conversion
+    # 🔥 Fix data types
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
     df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
-
-    # 🔥 FIX: Convert date properly
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce").dt.strftime("%Y-%m-%d")
 
     total_revenue = df["client_charge"].sum()
     total_profit = df["profit"].sum()
-
     paid = df[df["paid_status"] == "Paid"]["client_charge"].sum()
     outstanding = df[df["paid_status"] != "Paid"]["client_charge"].sum()
+
+    data = df.to_dict(orient="records")
+
+    # 🔥 Remove profit for client view
+    if view == "client":
+        for row in data:
+            row.pop("profit", None)
 
     return {
         "party": party,
         "month": month,
-        "invoices": df.to_dict(orient="records"),
+        "invoices": data,
         "total_revenue": float(total_revenue),
-        "total_profit": float(total_profit),
+        "total_profit": float(total_profit) if view == "internal" else 0,
         "paid": float(paid),
         "outstanding": float(outstanding)
     }
@@ -1231,35 +1237,84 @@ def ai_client_targeting(request: Request):
 #------------Client Statements----
 
 @app.get("/export-client-statement")
-def export_client_statement(party: str, month: str):
+def export_client_statement(party: str, month: str, view: str = "internal"):
 
     conn = get_conn()
+    cur = conn.cursor()
 
-    query = """
+    cur.execute("""
         SELECT invoice_no, sale_date, client_charge, profit, paid_status
         FROM sales
         WHERE LOWER(party) = LOWER(%s)
+        AND sale_date IS NOT NULL
         AND TO_CHAR(sale_date,'YYYY-MM') = %s
         ORDER BY sale_date
-    """
+    """, (party, month))
 
-    cur = conn.cursor()
-    cur.execute(query, (party, month))
     rows = cur.fetchall()
-    df = pd.DataFrame(rows)
+
+    cur.close()
     conn.close()
 
-    if df.empty:
+    if not rows:
         return {"error": "No data"}
 
-    file_path = f"{party}_{month}.xlsx"
-    df.to_excel(file_path, index=False)
+    df = pd.DataFrame(rows)
 
-    return FileResponse(
-        file_path,
-        filename=file_path,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
+    df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
+
+    total_revenue = df["client_charge"].sum()
+    total_profit = df["profit"].sum()
+    paid = df[df["paid_status"] == "Paid"]["client_charge"].sum()
+    outstanding = df[df["paid_status"] != "Paid"]["client_charge"].sum()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Statement"
+
+    # Header
+    ws["A1"] = "Mok Transports"
+    ws["A2"] = "Client Statement"
+    ws["A3"] = f"Client: {party}"
+    ws["A4"] = f"Month: {month}"
+
+    ws["A1"].font = Font(size=16, bold=True)
+    ws["A2"].font = Font(size=14, bold=True)
+
+    headers = ["Invoice", "Date", "Amount", "Status"]
+
+    if view == "internal":
+        headers.insert(3, "Profit")
+
+    ws.append([])
+    ws.append(headers)
+
+    for _, row in df.iterrows():
+
+        row_data = [
+            row["invoice_no"],
+            str(row["sale_date"]),
+            float(row["client_charge"]),
+            row["paid_status"]
+        ]
+
+        if view == "internal":
+            row_data.insert(3, float(row["profit"]))
+
+        ws.append(row_data)
+
+    ws.append([])
+    ws.append(["Total Revenue", total_revenue])
+    if view == "internal":
+        ws.append(["Total Profit", total_profit])
+    ws.append(["Paid", paid])
+    ws.append(["Outstanding", outstanding])
+
+    file_path = f"{party}_{month}.xlsx"
+    wb.save(file_path)
+
+    return FileResponse(file_path, filename=file_path)
 
 #------------Email Statements----
 
@@ -1327,6 +1382,8 @@ if __name__=="__main__":
         host="0.0.0.0",
         port=port
     )
+
+
 
 
 
