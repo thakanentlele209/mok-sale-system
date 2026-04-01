@@ -283,6 +283,62 @@
     </div>
 
     <div class="card">
+        <h3>Sales Records</h3>
+
+        <input id="searchBox" placeholder="Search Party Name / Invoice">
+        <button onclick="searchSales()">Search</button>
+        <button onclick="loadSales()">Reset</button>
+
+        <table id="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Party</th>
+                    <th>Supplier</th>
+                    <th>Order</th>
+                    <th>Invoice</th>
+                    <th>Waybill</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Total</th>
+                    <th>Profit</th>
+                    <th>Edit</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+
+            <tbody></tbody>
+
+        </table>
+    </div>
+
+    <div class="kpi-grid">
+
+        <div class="kpi-card">
+            <h3>Total Sales</h3>
+            <p id="kpiSales">R0</p>
+        </div>
+
+        <div class="kpi-card">
+            <h3>Total Profit</h3>
+            <p id="kpiProfit">R0</p>
+        </div>
+
+        <div class="kpi-card">
+            <h3>Paid Revenue</h3>
+            <p id="kpiPaid">R0</p>
+        </div>
+
+        <div class="kpi-card">
+            <h3>Outstanding</h3>
+            <p id="kpiOutstanding">R0</p>
+        </div>
+
+    </div>
+
+    <br><br>
+
+    <div class="card">
 
         <h3>Client Monthly Statement</h3>
 
@@ -311,63 +367,6 @@
         <br><br>
 
         <div id="statementResult"></div>
-
-        <div class="card">
-            <h3>Sales Records</h3>
-
-            <input id="searchBox" placeholder="Search Party Name / Invoice">
-            <button onclick="searchSales()">Search</button>
-            <button onclick="loadSales()">Reset</button>
-
-            <table id="table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Party</th>
-                        <th>Supplier</th>
-                        <th>Order</th>
-                        <th>Invoice</th>
-                        <th>Waybill</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                        <th>Total</th>
-                        <th>Profit</th>
-                        <th>Edit</th>
-                        <th>Delete</th>
-                    </tr>
-                </thead>
-
-                <tbody></tbody>
-
-            </table>
-        </div>
-
-        <div class="kpi-grid">
-
-            <div class="kpi-card">
-                <h3>Total Sales</h3>
-                <p id="kpiSales">R0</p>
-            </div>
-
-            <div class="kpi-card">
-                <h3>Total Profit</h3>
-                <p id="kpiProfit">R0</p>
-            </div>
-
-            <div class="kpi-card">
-                <h3>Paid Revenue</h3>
-                <p id="kpiPaid">R0</p>
-            </div>
-
-            <div class="kpi-card">
-                <h3>Outstanding</h3>
-                <p id="kpiOutstanding">R0</p>
-            </div>
-
-        </div>
-
-        <br><br>
-
 
     </div>
 
