@@ -353,18 +353,32 @@ def client_statement(party: str, month: str):
         SELECT invoice_no, sale_date, client_charge, profit, paid_status
         FROM sales
         WHERE LOWER(party) = LOWER(%s)
+        AND sale_date IS NOT NULL
         AND TO_CHAR(sale_date,'YYYY-MM') = %s
         ORDER BY sale_date
     """
 
     df = pd.read_sql(query, conn, params=(party, month))
-
     conn.close()
 
-    print("PARTY:", party)
-    print("MONTH:", month)
-    print("ROWS FOUND:", len(df))
+    if df.empty:
+        return {"error": "No data found"}
 
+    total_revenue = df["client_charge"].sum()
+    total_profit = df["profit"].sum()
+
+    paid = df[df["paid_status"] == "Paid"]["client_charge"].sum()
+    outstanding = df[df["paid_status"] != "Paid"]["client_charge"].sum()
+
+    return {
+        "party": party,
+        "month": month,
+        "invoices": df.to_dict(orient="records"),
+        "total_revenue": float(total_revenue),
+        "total_profit": float(total_profit),
+        "paid": float(paid),
+        "outstanding": float(outstanding)
+    }
 
 
 # ---------------- DASHBOARD KPIS ----------------
@@ -1214,7 +1228,6 @@ def export_client_statement(party: str, month: str):
         SELECT invoice_no, sale_date, client_charge, profit, paid_status
         FROM sales
         WHERE LOWER(party) = LOWER(%s)
-        AND sale_date IS NOT NULL
         AND TO_CHAR(sale_date,'YYYY-MM') = %s
         ORDER BY sale_date
     """
@@ -1288,6 +1301,8 @@ def email_client_statement(party: str, month: str, email: str = ""):
         smtp.send_message(msg)
 
     return {"message": "Statement emailed successfully"}
+
+
 
 if __name__=="__main__":
 
