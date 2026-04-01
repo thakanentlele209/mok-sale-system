@@ -348,25 +348,33 @@ def search_sales(q: str = ""):
 def client_statement(party: str, month: str):
 
     conn = get_conn()
+    cur = conn.cursor()
 
-    query = """
+    cur.execute("""
         SELECT invoice_no, sale_date, client_charge, profit, paid_status
         FROM sales
         WHERE LOWER(party) = LOWER(%s)
         AND sale_date IS NOT NULL
         AND TO_CHAR(sale_date,'YYYY-MM') = %s
         ORDER BY sale_date
-    """
+    """, (party, month))
 
-    df = pd.read_sql(query, conn, params=(party, month))
+    rows = cur.fetchall()
+
+    cur.close()
     conn.close()
 
-    if df.empty:
+    if not rows:
         return {"error": "No data found"}
 
-    # ✅ FIX: force numeric
+    df = pd.DataFrame(rows)
+
+    # 🔥 FIX: Force numeric conversion
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
     df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
+
+    # 🔥 FIX: Convert date properly
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce").dt.strftime("%Y-%m-%d")
 
     total_revenue = df["client_charge"].sum()
     total_profit = df["profit"].sum()
@@ -1235,7 +1243,10 @@ def export_client_statement(party: str, month: str):
         ORDER BY sale_date
     """
 
-    df = pd.read_sql(query, conn, params=(party, month))
+    cur = conn.cursor()
+    cur.execute(query, (party, month))
+    rows = cur.fetchall()
+    df = pd.DataFrame(rows)
     conn.close()
 
     if df.empty:
