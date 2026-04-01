@@ -364,6 +364,10 @@ def client_statement(party: str, month: str):
     if df.empty:
         return {"error": "No data found"}
 
+    # ✅ FIX: force numeric
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
+    df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
+
     total_revenue = df["client_charge"].sum()
     total_profit = df["profit"].sum()
 
@@ -379,7 +383,6 @@ def client_statement(party: str, month: str):
         "paid": float(paid),
         "outstanding": float(outstanding)
     }
-
 
 # ---------------- DASHBOARD KPIS ----------------
 
