@@ -350,50 +350,46 @@ def search_sales(q: str = ""):
 def client_statement(party: str, month: str, view: str = "internal"):
 
     conn = get_conn()
+    cur = conn.cursor()
 
-    query = """
+    cur.execute("""
         SELECT invoice_no, sale_date, client_charge, profit, paid_status
         FROM sales
         WHERE LOWER(party) = LOWER(%s)
         AND sale_date IS NOT NULL
         AND TO_CHAR(sale_date,'YYYY-MM') = %s
         ORDER BY sale_date
-    """
+    """, (party, month))
 
-    df = pd.read_sql(query, conn, params=(party, month))
+    rows = cur.fetchall()
+    cur.close()
     conn.close()
 
-    # ✅ HANDLE EMPTY DATA
-    if df.empty:
+    if not rows:
         return {"error": "No data found for this month"}
 
-    # ✅ CLEAN DATA TYPES (CRITICAL FIX)
+    # ✅ FIX: ADD COLUMN NAMES
+    columns = ["invoice_no", "sale_date", "client_charge", "profit", "paid_status"]
+    df = pd.DataFrame(rows, columns=columns)
+
+    # ✅ CLEAN DATA
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
     df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
-    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
-
-    # Format date AFTER cleaning
-    df["sale_date"] = df["sale_date"].dt.strftime("%Y-%m-%d")
-
-    # ✅ CLEAN paid_status (avoid None/NaN)
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce").dt.strftime("%Y-%m-%d")
     df["paid_status"] = df["paid_status"].fillna("Unpaid")
 
-    # ✅ TOTALS (SAFE)
+    # ✅ TOTALS
     total_revenue = float(df["client_charge"].sum() or 0)
     total_profit = float(df["profit"].sum() or 0)
-
     paid = float(df[df["paid_status"] == "Paid"]["client_charge"].sum() or 0)
     outstanding = float(df[df["paid_status"] != "Paid"]["client_charge"].sum() or 0)
 
-    # ✅ CONVERT TO JSON SAFE FORMAT
-    data = df.fillna("").to_dict(orient="records")
+    data = df.to_dict(orient="records")
 
-    # ✅ REMOVE PROFIT FOR CLIENT VIEW
     if view == "client":
         for row in data:
             row.pop("profit", None)
 
-    # ✅ LABEL FIX (YOUR REQUIREMENT)
     total_label = "Total Revenue" if view == "internal" else "Total"
 
     return {
@@ -406,6 +402,7 @@ def client_statement(party: str, month: str, view: str = "internal"):
         "outstanding": outstanding,
         "total_label": total_label
     }
+
 # ---------------- DASHBOARD KPIS ----------------
 
 @app.get("/dashboard-kpis")
