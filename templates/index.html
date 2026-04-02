@@ -823,7 +823,7 @@
         padding:15px;
         border-radius:8px;
     ">
-        <div><b>${data.total_label}:</b> R ${Number(data.total_value).toLocaleString()}</div>
+        <div><b><b>${data.total_label}:</b> R ${Number(data.total_revenue).toLocaleString()}</div>
         ${showProfit && data.total_profit !== null
                     ? `<div><b>Total Profit:</b> R ${Number(data.total_profit).toLocaleString()}</div>`
                     : ""
@@ -1008,4 +1008,7 @@
 </body>
 
 </html>
+
+
+
 
