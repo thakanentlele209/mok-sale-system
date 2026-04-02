@@ -350,36 +350,40 @@ def search_sales(q: str = ""):
 def client_statement(party: str, month: str, view: str = "internal"):
 
     conn = get_conn()
+    cur = conn.cursor()
 
-    query = """
+    cur.execute("""
         SELECT invoice_no, sale_date, client_charge, profit, paid_status
         FROM sales
         WHERE LOWER(party) = LOWER(%s)
         AND sale_date IS NOT NULL
         AND TO_CHAR(sale_date,'YYYY-MM') = %s
         ORDER BY sale_date
-    """
+    """, (party, month))
 
-    df = pd.read_sql(query, conn, params=(party, month))
+    rows = cur.fetchall()
+
+    # ✅ FIX: get proper column names
+    columns = [desc[0] for desc in cur.description]
+
+    cur.close()
     conn.close()
 
-    if df.empty:
+    if not rows:
         return {"error": "No data found for this month"}
 
-    # ✅ FIX ONLY NUMERIC COLUMNS
+    # ✅ CREATE DATAFRAME CORRECTLY
+    df = pd.DataFrame(rows, columns=columns)
+
+    # ✅ CLEAN ONLY WHAT MATTERS
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
     df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
 
-    # ✅ FIX DATE (DON’T TURN INTO 0)
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
     df["sale_date"] = df["sale_date"].dt.strftime("%Y-%m-%d")
     df["sale_date"] = df["sale_date"].fillna("")
 
-    # ✅ FIX STATUS
     df["paid_status"] = df["paid_status"].fillna("Unpaid")
-
-    # ❌ DO NOT TOUCH WHOLE DF (REMOVE THIS LINE COMPLETELY)
-    # df = df.replace({pd.NA: 0}).fillna(0)
 
     # ✅ TOTALS
     total_revenue = float(df["client_charge"].sum())
@@ -389,7 +393,7 @@ def client_statement(party: str, month: str, view: str = "internal"):
 
     data = df.to_dict(orient="records")
 
-    # client view
+    # remove profit for client
     if view == "client":
         for row in data:
             row.pop("profit", None)
