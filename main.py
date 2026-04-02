@@ -366,28 +366,31 @@ def client_statement(party: str, month: str, view: str = "internal"):
     if df.empty:
         return {"error": "No data found for this month"}
 
-    # ✅ CLEAN TYPES (NO fillna("") HERE)
+    # ✅ Keep your original working structure
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce")
     df["profit"] = pd.to_numeric(df["profit"], errors="coerce")
 
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce").dt.strftime("%Y-%m-%d")
+
+    # ✅ ONLY FIX: replace NaN → 0 (THIS IS THE KEY)
     df["client_charge"] = df["client_charge"].fillna(0)
     df["profit"] = df["profit"].fillna(0)
-
-    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
-    df["sale_date"] = df["sale_date"].dt.strftime("%Y-%m-%d")
-
     df["paid_status"] = df["paid_status"].fillna("Unpaid")
 
-    # ✅ TOTALS (NO NaN)
+    # ✅ totals (force float + safe)
     total_revenue = float(df["client_charge"].sum())
     total_profit = float(df["profit"].sum())
 
-    paid = float(df[df["paid_status"] == "Paid"]["client_charge"].sum())
-    outstanding = float(df[df["paid_status"] != "Paid"]["client_charge"].sum())
+    paid = float(df.loc[df["paid_status"] == "Paid", "client_charge"].sum())
+    outstanding = float(df.loc[df["paid_status"] != "Paid", "client_charge"].sum())
+
+    # ✅ FINAL SAFETY (THIS STOPS THE CRASH)
+    def safe(val):
+        return 0 if pd.isna(val) else float(val)
 
     data = df.to_dict(orient="records")
 
-    # ✅ REMOVE PROFIT FOR CLIENT VIEW ONLY
+    # remove profit for client view
     if view == "client":
         for row in data:
             row.pop("profit", None)
@@ -396,12 +399,13 @@ def client_statement(party: str, month: str, view: str = "internal"):
         "party": party,
         "month": month,
         "invoices": data,
-        "total_revenue": total_revenue if not pd.isna(total_revenue) else 0,
-        "total_profit": total_profit if view == "internal" else 0,
-        "paid": paid if not pd.isna(paid) else 0,
-        "outstanding": outstanding if not pd.isna(outstanding) else 0,
+        "total_revenue": safe(total_revenue),
+        "total_profit": safe(total_profit) if view == "internal" else 0,
+        "paid": safe(paid),
+        "outstanding": safe(outstanding),
         "total_label": "Total Revenue" if view == "internal" else "Total"
     }
+
 # ---------------- DASHBOARD KPIS ----------------
 
 @app.get("/dashboard-kpis")
