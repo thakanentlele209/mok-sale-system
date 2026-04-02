@@ -366,14 +366,20 @@ def client_statement(party: str, month: str, view: str = "internal"):
     if df.empty:
         return {"error": "No data found for this month"}
 
-    # ✅ CLEAN DATA
+    # ✅ FIX ONLY NUMERIC COLUMNS
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
     df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
-    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce").dt.strftime("%Y-%m-%d")
+
+    # ✅ FIX DATE (DON’T TURN INTO 0)
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
+    df["sale_date"] = df["sale_date"].dt.strftime("%Y-%m-%d")
+    df["sale_date"] = df["sale_date"].fillna("")
+
+    # ✅ FIX STATUS
     df["paid_status"] = df["paid_status"].fillna("Unpaid")
 
-    # ✅ CRITICAL FIX → REMOVE ALL NaN FROM ROWS
-    df = df.replace({pd.NA: 0}).fillna(0)
+    # ❌ DO NOT TOUCH WHOLE DF (REMOVE THIS LINE COMPLETELY)
+    # df = df.replace({pd.NA: 0}).fillna(0)
 
     # ✅ TOTALS
     total_revenue = float(df["client_charge"].sum())
@@ -398,6 +404,7 @@ def client_statement(party: str, month: str, view: str = "internal"):
         "outstanding": outstanding,
         "total_label": "Total Revenue" if view == "internal" else "Total"
     }
+
 
 # ---------------- DASHBOARD KPIS ----------------
 
