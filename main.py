@@ -363,58 +363,49 @@ def client_statement(party: str, month: str, view: str = "internal"):
     df = pd.read_sql(query, conn, params=(party, month))
     conn.close()
 
+    # ✅ HANDLE EMPTY DATA
     if df.empty:
         return {"error": "No data found for this month"}
 
-    # ✅ Clean numeric columns PROPERLY
-    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce")
-    df["profit"] = pd.to_numeric(df["profit"], errors="coerce")
-
-    # 🔥 HARD FIX: remove ALL NaN completely
-    df["client_charge"] = df["client_charge"].fillna(0)
-    df["profit"] = df["profit"].fillna(0)
-
-    # ✅ Dates
+    # ✅ CLEAN DATA TYPES (CRITICAL FIX)
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
+    df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
+
+    # Format date AFTER cleaning
     df["sale_date"] = df["sale_date"].dt.strftime("%Y-%m-%d")
 
-    # ✅ Totals (SAFE)
+    # ✅ CLEAN paid_status (avoid None/NaN)
+    df["paid_status"] = df["paid_status"].fillna("Unpaid")
+
+    # ✅ TOTALS (SAFE)
     total_revenue = float(df["client_charge"].sum() or 0)
     total_profit = float(df["profit"].sum() or 0)
 
-    paid = float(df.loc[df["paid_status"] == "Paid", "client_charge"].sum() or 0)
-    outstanding = float(df.loc[df["paid_status"] != "Paid", "client_charge"].sum() or 0)
+    paid = float(df[df["paid_status"] == "Paid"]["client_charge"].sum() or 0)
+    outstanding = float(df[df["paid_status"] != "Paid"]["client_charge"].sum() or 0)
 
-    # 🔥 FINAL SAFETY (NO NaN ALLOWED IN JSON)
-    def safe(value):
-        if pd.isna(value):
-            return 0.0
-        return float(value)
+    # ✅ CONVERT TO JSON SAFE FORMAT
+    data = df.fillna("").to_dict(orient="records")
 
-    data = df.to_dict(orient="records")
-
-    # Clean each row
-    for row in data:
-        row["client_charge"] = safe(row.get("client_charge"))
-        row["profit"] = safe(row.get("profit"))
-
-    # ✅ Remove profit for client
+    # ✅ REMOVE PROFIT FOR CLIENT VIEW
     if view == "client":
         for row in data:
             row.pop("profit", None)
 
+    # ✅ LABEL FIX (YOUR REQUIREMENT)
+    total_label = "Total Revenue" if view == "internal" else "Total"
+
     return {
         "party": party,
         "month": month,
-        "view": view,
         "invoices": data,
-        "total_label": "Total Revenue" if view == "internal" else "Total",
-        "total_value": safe(total_revenue),
-        "total_profit": safe(total_profit) if view == "internal" else None,
-        "paid": safe(paid),
-        "outstanding": safe(outstanding)
+        "total_revenue": total_revenue,
+        "total_profit": total_profit if view == "internal" else 0,
+        "paid": paid,
+        "outstanding": outstanding,
+        "total_label": total_label
     }
-
 # ---------------- DASHBOARD KPIS ----------------
 
 @app.get("/dashboard-kpis")
