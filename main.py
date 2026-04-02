@@ -350,47 +350,42 @@ def search_sales(q: str = ""):
 def client_statement(party: str, month: str, view: str = "internal"):
 
     conn = get_conn()
-    cur = conn.cursor()
 
-    cur.execute("""
+    query = """
         SELECT invoice_no, sale_date, client_charge, profit, paid_status
         FROM sales
         WHERE LOWER(party) = LOWER(%s)
         AND sale_date IS NOT NULL
         AND TO_CHAR(sale_date,'YYYY-MM') = %s
         ORDER BY sale_date
-    """, (party, month))
+    """
 
-    rows = cur.fetchall()
-    cur.close()
+    df = pd.read_sql(query, conn, params=(party, month))
     conn.close()
 
-    if not rows:
+    if df.empty:
         return {"error": "No data found for this month"}
 
-    # ✅ FIX: ADD COLUMN NAMES
-    columns = ["invoice_no", "sale_date", "client_charge", "profit", "paid_status"]
-    df = pd.DataFrame(rows, columns=columns)
-
-    # ✅ CLEAN DATA
+    # ✅ FORCE CLEAN DATA (THIS FIXES NaN ISSUE COMPLETELY)
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
     df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce").dt.strftime("%Y-%m-%d")
+
     df["paid_status"] = df["paid_status"].fillna("Unpaid")
 
-    # ✅ TOTALS
-    total_revenue = float(df["client_charge"].sum() or 0)
-    total_profit = float(df["profit"].sum() or 0)
-    paid = float(df[df["paid_status"] == "Paid"]["client_charge"].sum() or 0)
-    outstanding = float(df[df["paid_status"] != "Paid"]["client_charge"].sum() or 0)
+    # ✅ SAFE TOTALS (NO NaN EVER)
+    total_revenue = float(df["client_charge"].fillna(0).sum() or 0)
+    total_profit = float(df["profit"].fillna(0).sum() or 0)
 
-    data = df.to_dict(orient="records")
+    paid = float(df[df["paid_status"] == "Paid"]["client_charge"].fillna(0).sum() or 0)
+    outstanding = float(df[df["paid_status"] != "Paid"]["client_charge"].fillna(0).sum() or 0)
 
+    data = df.fillna("").to_dict(orient="records")
+
+    # ✅ CLIENT VIEW: REMOVE PROFIT
     if view == "client":
         for row in data:
             row.pop("profit", None)
-
-    total_label = "Total Revenue" if view == "internal" else "Total"
 
     return {
         "party": party,
@@ -400,7 +395,7 @@ def client_statement(party: str, month: str, view: str = "internal"):
         "total_profit": total_profit if view == "internal" else 0,
         "paid": paid,
         "outstanding": outstanding,
-        "total_label": total_label
+        "total_label": "Total Revenue" if view == "internal" else "Total"
     }
 
 # ---------------- DASHBOARD KPIS ----------------
