@@ -316,81 +316,6 @@
     </div>
 
 
-    <!-- ===== PAYMENT REMINDERS ===== -->
-    <div class="card" id="paymentRemindersCard">
-
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-            <h3 style="margin:0;color:#0d47a1;">🔔 Payment Reminders</h3>
-            <span id="reminderWindowBadge" style="
-                border-radius:20px;padding:4px 14px;font-size:13px;
-                font-weight:bold;display:none;
-            "></span>
-        </div>
-
-        <!-- Active window banner -->
-        <div id="reminderBanner" style="display:none;
-            background:#e8f5e9;border-left:5px solid #2e7d32;
-            border-radius:8px;padding:14px 18px;margin-bottom:18px;">
-            <div style="font-size:15px;font-weight:bold;color:#2e7d32;">
-                📅 Month-End Collection Window is Active
-            </div>
-            <div style="font-size:13px;color:#444;margin-top:4px;">
-                It's time to remind clients of their outstanding balances. 
-                Work through the list below and mark each client as reminded.
-            </div>
-        </div>
-
-        <!-- Inactive window notice -->
-        <div id="reminderInactive" style="display:none;
-            background:#f1f5f9;border-left:5px solid #94a3b8;
-            border-radius:8px;padding:14px 18px;margin-bottom:18px;">
-            <div style="font-size:14px;color:#555;">
-                🕐 The reminder window runs from the <b>25th to the 2nd</b> of each month.
-                The list below shows all current outstanding balances for your reference.
-            </div>
-        </div>
-
-        <!-- Summary row -->
-        <div id="reminderSummary" style="
-            display:none;grid-template-columns:repeat(3,1fr);
-            gap:12px;margin-bottom:18px;
-        ">
-            <div style="background:#e8f5e9;border-radius:8px;padding:12px;border-left:4px solid #2e7d32;text-align:center;">
-                <div style="font-size:12px;color:#888;">Clients to Contact</div>
-                <div id="reminderCount" style="font-size:22px;font-weight:bold;color:#2e7d32;">0</div>
-            </div>
-            <div style="background:#fff7ed;border-radius:8px;padding:12px;border-left:4px solid #f59e0b;text-align:center;">
-                <div style="font-size:12px;color:#888;">Total Outstanding</div>
-                <div id="reminderTotal" style="font-size:22px;font-weight:bold;color:#f59e0b;">R 0</div>
-            </div>
-            <div style="background:#e8f5e9;border-radius:8px;padding:12px;border-left:4px solid #1b5e20;text-align:center;">
-                <div style="font-size:12px;color:#888;">Already Reminded</div>
-                <div id="reminderDoneCount" style="font-size:22px;font-weight:bold;color:#1b5e20;">0</div>
-            </div>
-        </div>
-
-        <div id="reminderEmpty" style="display:none;color:#555;padding:10px 0;">
-            ✅ No outstanding balances to follow up on.
-        </div>
-
-        <div id="reminderTableWrap" style="display:none;overflow-x:auto;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Client</th>
-                        <th>Unpaid Invoices</th>
-                        <th>Total Outstanding</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="reminderBody"></tbody>
-            </table>
-        </div>
-
-    </div>
-    <!-- ===== END PAYMENT REMINDERS ===== -->
-
     <div class="card">
         <h3>Sales Records</h3>
 
@@ -447,53 +372,9 @@
 
     <br><br>
 
-    <div class="card" id="latePaymentCard">
-
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-            <h3 style="margin:0;color:#0d47a1;">⚠️ Late Payment Alerts</h3>
-            <span id="lateAlertsBadge" style="
-                background:#c62828;color:white;border-radius:20px;
-                padding:4px 14px;font-size:13px;font-weight:bold;display:none;
-            ">0 Overdue</span>
-        </div>
-
-        <div id="lateAlertsEmpty" style="display:none;color:#555;padding:10px 0;">
-            ✅ No overdue invoices at this time.
-        </div>
-
-        <div id="lateAlertsSummary" style="
-            display:none;grid-template-columns:repeat(3,1fr);
-            gap:12px;margin-bottom:18px;
-        ">
-            <div style="background:#fef2f2;border-radius:8px;padding:12px;border-left:4px solid #c62828;text-align:center;">
-                <div style="font-size:12px;color:#888;">Total Overdue</div>
-                <div id="summaryCount" style="font-size:22px;font-weight:bold;color:#c62828;">0</div>
-            </div>
-            <div style="background:#fff7ed;border-radius:8px;padding:12px;border-left:4px solid #f59e0b;text-align:center;">
-                <div style="font-size:12px;color:#888;">Amount Outstanding</div>
-                <div id="summaryAmount" style="font-size:22px;font-weight:bold;color:#f59e0b;">R 0</div>
-            </div>
-            <div style="background:#fef2f2;border-radius:8px;padding:12px;border-left:4px solid #7f1d1d;text-align:center;">
-                <div style="font-size:12px;color:#888;">Longest Overdue</div>
-                <div id="summaryMaxDays" style="font-size:22px;font-weight:bold;color:#7f1d1d;">0 days</div>
-            </div>
-        </div>
-
-        <div id="lateAlertsTableWrap" style="display:none;overflow-x:auto;">
-            <table id="lateAlertsTable">
-                <thead>
-                    <tr>
-                        <th>Client</th>
-                        <th>Invoice No</th>
-                        <th>Days Overdue</th>
-                        <th>Amount</th>
-                        <th>Urgency</th>
-                    </tr>
-                </thead>
-                <tbody id="lateAlertsBody"></tbody>
-            </table>
-        </div>
-
+    <div class="card">
+        <h3>Late Payment Alerts</h3>
+        <ul id="lateAlerts"></ul>
     </div>
 
     <div class="card">
@@ -552,146 +433,20 @@
 
             const res = await fetch("/late-payment-alerts")
             const data = await res.json()
-            const alerts = data.alerts || []
 
-            const badge     = document.getElementById("lateAlertsBadge")
-            const empty     = document.getElementById("lateAlertsEmpty")
-            const summary   = document.getElementById("lateAlertsSummary")
-            const tableWrap = document.getElementById("lateAlertsTableWrap")
-            const tbody     = document.getElementById("lateAlertsBody")
+            const list = document.getElementById("lateAlerts")
+            list.innerHTML = ""
 
-            tbody.innerHTML = ""
+            data.alerts.forEach(a => {
 
-            if (alerts.length === 0) {
-                empty.style.display     = "block"
-                summary.style.display   = "none"
-                tableWrap.style.display = "none"
-                badge.style.display     = "none"
-                return
-            }
+                const li = document.createElement("li")
 
-            const totalAmount = alerts.reduce((s, a) => s + a.amount, 0)
-            const maxDays     = Math.max(...alerts.map(a => a.days))
+                li.textContent = `${a.party} invoice ${a.invoice} overdue ${a.days} days (R ${a.amount})`
 
-            badge.style.display     = "inline-block"
-            badge.textContent       = `${alerts.length} Overdue`
-            summary.style.display   = "grid"
-            tableWrap.style.display = "block"
-            empty.style.display     = "none"
+                list.appendChild(li)
 
-            document.getElementById("summaryCount").textContent   = alerts.length
-            document.getElementById("summaryAmount").textContent  = "R " + totalAmount.toLocaleString()
-            document.getElementById("summaryMaxDays").textContent = maxDays + " days"
-
-            alerts.sort((a, b) => b.days - a.days)
-
-            alerts.forEach(a => {
-                let label, style
-                if (a.days > 90) {
-                    label = "🔴 Critical"
-                    style = "background:#fde8e8;color:#b91c1c;padding:3px 10px;border-radius:12px;font-weight:bold;font-size:12px;"
-                } else if (a.days > 60) {
-                    label = "🟠 High"
-                    style = "background:#fff3e0;color:#d97706;padding:3px 10px;border-radius:12px;font-weight:bold;font-size:12px;"
-                } else {
-                    label = "🟡 Moderate"
-                    style = "background:#fefce8;color:#a16207;padding:3px 10px;border-radius:12px;font-weight:bold;font-size:12px;"
-                }
-                tbody.innerHTML += `
-                    <tr>
-                        <td><b>${a.party}</b></td>
-                        <td>${a.invoice}</td>
-                        <td style="color:#c62828;font-weight:bold;">${a.days} days</td>
-                        <td>R ${Number(a.amount).toLocaleString()}</td>
-                        <td><span style="${style}">${label}</span></td>
-                    </tr>`
             })
-        }
 
-        // ======== PAYMENT REMINDERS ========
-        const reminderSentSet = new Set()
-
-        async function loadPaymentReminders() {
-
-            const res = await fetch("/payment-reminders")
-            const data = await res.json()
-            const clients = data.clients || []
-
-            const today    = new Date()
-            const day      = today.getDate()
-            const isActive = day >= 25 || day <= 2
-
-            const banner    = document.getElementById("reminderBanner")
-            const inactive  = document.getElementById("reminderInactive")
-            const badge     = document.getElementById("reminderWindowBadge")
-            const summary   = document.getElementById("reminderSummary")
-            const empty     = document.getElementById("reminderEmpty")
-            const tableWrap = document.getElementById("reminderTableWrap")
-            const tbody     = document.getElementById("reminderBody")
-
-            banner.style.display   = isActive ? "block" : "none"
-            inactive.style.display = isActive ? "none"  : "block"
-
-            badge.style.display = "inline-block"
-            if (isActive) {
-                badge.textContent        = "🟢 Window Active"
-                badge.style.background   = "#2e7d32"
-                badge.style.color        = "white"
-            } else {
-                badge.textContent        = "⏸ Outside Window"
-                badge.style.background   = "#94a3b8"
-                badge.style.color        = "white"
-            }
-
-            if (clients.length === 0) {
-                empty.style.display     = "block"
-                summary.style.display   = "none"
-                tableWrap.style.display = "none"
-                return
-            }
-
-            empty.style.display     = "none"
-            summary.style.display   = "grid"
-            tableWrap.style.display = "block"
-
-            const total     = clients.reduce((s, c) => s + c.outstanding, 0)
-            const doneCount = clients.filter(c => reminderSentSet.has(c.party)).length
-
-            document.getElementById("reminderCount").textContent     = clients.length
-            document.getElementById("reminderTotal").textContent     = "R " + total.toLocaleString()
-            document.getElementById("reminderDoneCount").textContent = doneCount
-
-            tbody.innerHTML = ""
-
-            clients.forEach(c => {
-                const reminded    = reminderSentSet.has(c.party)
-                const rowStyle    = reminded ? "background:#f0fdf4;" : ""
-                const statusBadge = reminded
-                    ? `<span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:bold;">✅ Reminder Sent</span>`
-                    : `<span style="background:#fff7ed;color:#c2410c;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:bold;">⏳ Pending</span>`
-                const actionBtn = reminded
-                    ? `<button style="background:#6b7280;font-size:12px;padding:6px 12px;" onclick="undoReminder('${c.party}')">Undo</button>`
-                    : `<button style="background:#2e7d32;font-size:12px;padding:6px 12px;" onclick="markReminded('${c.party}')">Mark Reminded</button>`
-
-                tbody.innerHTML += `
-                    <tr style="${rowStyle}">
-                        <td><b>${c.party}</b></td>
-                        <td style="text-align:center;">${c.invoice_count}</td>
-                        <td style="font-weight:bold;color:#c2410c;">R ${Number(c.outstanding).toLocaleString()}</td>
-                        <td>${statusBadge}</td>
-                        <td>${actionBtn}</td>
-                    </tr>`
-            })
-        }
-
-        function markReminded(party) {
-            reminderSentSet.add(party)
-            loadPaymentReminders()
-        }
-
-        function undoReminder(party) {
-            reminderSentSet.delete(party)
-            loadPaymentReminders()
         }
 
         async function loadMonthlyDashboard() {
@@ -1002,88 +757,108 @@
 
         }
 
+        // Stores last fetched statement data for print use
+        let lastStatementData = null;
+        let lastStatementType = null;
+
         async function generateStatement() {
 
             const party = document.getElementById("statementParty").value;
             const month = document.getElementById("statementMonth").value;
-            const type = document.getElementById("statementType").value;
+            const type  = document.getElementById("statementType").value;
 
-            const res = await fetch(
-                `/client-statement?party=${encodeURIComponent(party)}&month=${month}&view=${type}`
-            );
-
+            const res  = await fetch(`/client-statement?party=${encodeURIComponent(party)}&month=${month}&view=${type}`);
             const data = await res.json();
 
-            if (data.error) {
-                alert(data.error);
-                return;
-            }
+            if (data.error) { alert(data.error); return; }
+
+            lastStatementData = data;
+            lastStatementType = type;
 
             const showProfit = type === "internal";
 
-            let html = `
-    <div id="printArea" style="background:white;padding:25px;border-radius:10px">
-
-        <div style="display:flex;justify-content:space-between;align-items:center">
-           <img src="${window.location.origin}/static/logo.png" style="height:60px;">
-            
-            <div style="text-align:right">
-                <h2 style="color:#0d47a1;margin:0">CLIENT STATEMENT</h2>
-                <h3 style="margin:0">${data.party}</h3>
-                <small>${data.month}</small>
-            </div>
-        </div>
-
-        <hr>
-
-        <table>
-        <tr>
-            <th>Invoice</th>
-            <th>Date</th>
-            <th>Amount</th>
-            ${showProfit ? "<th>Profit</th>" : ""}
-            <th>Status</th>
-        </tr>
-    `;
-
+            // Build invoice rows
+            let rows = "";
             data.invoices.forEach(i => {
-                html += `
-        <tr>
-            <td>${i.invoice_no}</td>
-            <td>${i.sale_date}</td>
-            <td>R ${Number(i.client_charge).toLocaleString()}</td>
-            ${showProfit ? `<td>R ${Number(i.profit).toLocaleString()}</td>` : ""}
-            <td>${i.paid_status}</td>
-        </tr>
-        `;
+                const isPaid = i.paid_status === "Paid";
+                rows += `
+                <tr>
+                    <td>${i.invoice_no}</td>
+                    <td>${i.sale_date}</td>
+                    <td style="text-align:right;">R ${Number(i.client_charge).toLocaleString()}</td>
+                    ${showProfit ? `<td style="text-align:right;">R ${Number(i.profit).toLocaleString()}</td>` : ""}
+                    <td style="text-align:center;">
+                        <span style="
+                            display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:bold;
+                            background:${isPaid ? "#d1fae5" : "#fde8e8"};
+                            color:${isPaid ? "#065f46" : "#b91c1c"};
+                        ">${i.paid_status}</span>
+                    </td>
+                </tr>`;
             });
 
-            html += `</table>
+            const html = `
+            <div id="printArea" style="background:white;padding:30px;border-radius:10px;font-family:Arial,sans-serif;">
 
-    <br><br>
+                <!-- HEADER -->
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+                    <div>
+                        <img src="${window.location.origin}/static/logo.png" style="height:55px;display:block;margin-bottom:6px;">
+                        <div style="font-size:13px;color:#555;">Mok Transports Pty Ltd</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:22px;font-weight:bold;color:#0d47a1;letter-spacing:1px;">CLIENT STATEMENT</div>
+                        <div style="font-size:16px;font-weight:bold;margin-top:4px;">${data.party}</div>
+                        <div style="font-size:13px;color:#666;margin-top:2px;">Period: ${data.month}</div>
+                        <div style="font-size:12px;color:#999;margin-top:2px;">Generated: ${new Date().toLocaleDateString("en-ZA")}</div>
+                    </div>
+                </div>
 
-    <div style="
-        display:grid;
-        grid-template-columns:repeat(2,1fr);
-        gap:10px;
-        background:#f1f5f9;
-        padding:15px;
-        border-radius:8px;
-    ">
-        <div><b><b>${data.total_label}:</b> R ${Number(data.total_revenue).toLocaleString()}</div>
-        ${showProfit && data.total_profit !== null
-                    ? `<div><b>Total Profit:</b> R ${Number(data.total_profit).toLocaleString()}</div>`
-                    : ""
-                }
-        <div><b>Paid:</b> R ${Number(data.paid).toLocaleString()}</div>
-        <div><b>Outstanding:</b> R ${Number(data.outstanding).toLocaleString()}</div>
-    </div>
+                <hr style="border:none;border-top:2px solid #0d47a1;margin-bottom:20px;">
 
-    <br><br>
-    <small>Generated by Mok Transports Finance System</small>
+                <!-- INVOICE TABLE -->
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead>
+                        <tr style="background:#0d47a1;color:white;">
+                            <th style="padding:10px;text-align:left;">Invoice No</th>
+                            <th style="padding:10px;text-align:left;">Date</th>
+                            <th style="padding:10px;text-align:right;">Amount</th>
+                            ${showProfit ? '<th style="padding:10px;text-align:right;">Profit</th>' : ""}
+                            <th style="padding:10px;text-align:center;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
 
-    </div>
-    `;
+                <!-- TOTALS BOX -->
+                <div style="display:flex;justify-content:flex-end;margin-top:24px;">
+                    <div style="width:300px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+                        <div style="background:#0d47a1;color:white;padding:8px 14px;font-weight:bold;font-size:13px;">
+                            Summary
+                        </div>
+                        <div style="padding:12px 14px;font-size:13px;display:grid;grid-template-columns:1fr auto;gap:6px 16px;">
+                            <span style="color:#555;">${data.total_label}</span>
+                            <span style="font-weight:bold;text-align:right;">R ${Number(data.total_revenue).toLocaleString()}</span>
+                            ${showProfit && data.total_profit !== null ? `
+                            <span style="color:#555;">Total Profit</span>
+                            <span style="font-weight:bold;text-align:right;">R ${Number(data.total_profit).toLocaleString()}</span>` : ""}
+                            <span style="color:#555;">Paid</span>
+                            <span style="font-weight:bold;color:#065f46;text-align:right;">R ${Number(data.paid).toLocaleString()}</span>
+                            <span style="color:#555;border-top:1px solid #e2e8f0;padding-top:6px;">Outstanding</span>
+                            <span style="font-weight:bold;color:#b91c1c;text-align:right;border-top:1px solid #e2e8f0;padding-top:6px;">R ${Number(data.outstanding).toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FOOTER -->
+                <div style="margin-top:36px;border-top:1px solid #e2e8f0;padding-top:12px;display:flex;justify-content:space-between;align-items:center;">
+                    <small style="color:#999;">Generated by Mok Transports Finance System</small>
+                    <small style="color:#999;">Mok Transports Pty Ltd — Confidential</small>
+                </div>
+
+            </div>`;
 
             document.getElementById("statementResult").innerHTML = html;
         }
@@ -1121,102 +896,129 @@
 
         }
 
-        function printStatement() {
+                function printStatement() {
 
-            const area = document.getElementById("printArea");
-
-            if (!area || area.innerHTML.trim() === "") {
-                alert("Please generate statement first");
+            if (!lastStatementData) {
+                alert("Please generate a statement first.");
                 return;
             }
 
-            const content = area.innerHTML;
+            const data       = lastStatementData;
+            const showProfit = lastStatementType === "internal";
+            const logoUrl    = window.location.origin + "/static/logo.png";
+            const today      = new Date().toLocaleDateString("en-ZA");
 
-            const win = window.open("", "", "width=900,height=700");
+            let rows = "";
+            data.invoices.forEach(function(i) {
+                const isPaid   = i.paid_status === "Paid";
+                const bgColor  = isPaid ? "#d1fae5" : "#fde8e8";
+                const txtColor = isPaid ? "#065f46" : "#b91c1c";
+                const profitTd = showProfit
+                    ? "<td style='text-align:right;'>R " + Number(i.profit).toLocaleString() + "</td>"
+                    : "";
+                rows += "<tr>"
+                      + "<td>" + i.invoice_no + "</td>"
+                      + "<td>" + i.sale_date  + "</td>"
+                      + "<td style='text-align:right;'>R " + Number(i.client_charge).toLocaleString() + "</td>"
+                      + profitTd
+                      + "<td style='text-align:center;'>"
+                      + "<span style='display:inline-block;padding:2px 10px;border-radius:10px;"
+                      + "font-size:11px;font-weight:bold;background:" + bgColor + ";color:" + txtColor + ";'>"
+                      + i.paid_status + "</span></td>"
+                      + "</tr>";
+            });
 
-            win.document.write(`
-        <html>
-        <head>
-            <title>Statement</title>
-            <style>
-                body { font-family: Arial; padding:20px; color:#000 }
+            const profitHeader = showProfit
+                ? "<th style='text-align:right;'>Profit</th>"
+                : "";
 
-                .header {
-                    display:flex;
-                    justify-content:space-between;
-                    align-items:center;
-                    margin-bottom:20px;
-                }
+            const profitTotal = (showProfit && data.total_profit !== null)
+                ? "<span class='label'>Total Profit</span>"
+                + "<span class='value'>R " + Number(data.total_profit).toLocaleString() + "</span>"
+                : "";
 
-                .left-header {
-                    display:flex;
-                    flex-direction:column;
-                }
+            const css = [
+                "* { box-sizing:border-box; margin:0; padding:0; }",
+                "body { font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#111; padding:40px; background:white; }",
+                ".header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }",
+                ".header-left img { height:55px; display:block; margin-bottom:6px; }",
+                ".header-left .company { font-size:12px; color:#555; }",
+                ".header-right { text-align:right; }",
+                ".title { font-size:22px; font-weight:bold; color:#0d47a1; letter-spacing:1px; }",
+                ".client-name { font-size:16px; font-weight:bold; margin-top:4px; }",
+                ".meta { font-size:12px; color:#666; margin-top:2px; }",
+                "hr.divider { border:none; border-top:2px solid #0d47a1; margin:20px 0; }",
+                "table { width:100%; border-collapse:collapse; font-size:13px; }",
+                "thead tr { background:#0d47a1; color:white; }",
+                "thead th { padding:10px 12px; font-weight:bold; border:none; text-align:left; }",
+                "tbody tr:nth-child(even) { background:#f8fafc; }",
+                "tbody td { padding:9px 12px; border-bottom:1px solid #e2e8f0; }",
+                ".totals-wrap { display:flex; justify-content:flex-end; margin-top:24px; }",
+                ".totals-box { width:300px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }",
+                ".totals-header { background:#0d47a1; color:white; padding:8px 14px; font-weight:bold; font-size:13px; }",
+                ".totals-grid { padding:12px 14px; display:grid; grid-template-columns:1fr auto; gap:6px 16px; }",
+                ".label { color:#555; }",
+                ".value { font-weight:bold; text-align:right; }",
+                ".paid-value { color:#065f46; font-weight:bold; text-align:right; }",
+                ".outstanding-label, .outstanding-value { border-top:1px solid #e2e8f0; padding-top:6px; }",
+                ".outstanding-value { color:#b91c1c; font-weight:bold; text-align:right; }",
+                ".footer { margin-top:40px; border-top:1px solid #e2e8f0; padding-top:12px; display:flex; justify-content:space-between; }",
+                ".footer small { color:#999; font-size:11px; }",
+                "@media print { body { padding:20px; } @page { margin:15mm; } }"
+            ].join("\n");
 
-                .company-name {
-                    font-weight:bold;
-                    font-size:16px;
-                    margin-top:5px;
-                }
+            const html = "<!DOCTYPE html>"
+                + "<html><head>"
+                + "<title>Statement - " + data.party + " - " + data.month + "</title>"
+                + "<style>" + css + "</style>"
+                + "</head><body>"
+                + "<div class='header'>"
+                +   "<div class='header-left'>"
+                +     "<img src='" + logoUrl + "' onerror=\"this.style.display='none'\">"
+                +     "<div class='company'>Mok Transports Pty Ltd</div>"
+                +   "</div>"
+                +   "<div class='header-right'>"
+                +     "<div class='title'>CLIENT STATEMENT</div>"
+                +     "<div class='client-name'>" + data.party + "</div>"
+                +     "<div class='meta'>Period: " + data.month + "</div>"
+                +     "<div class='meta'>Generated: " + today + "</div>"
+                +   "</div>"
+                + "</div>"
+                + "<hr class='divider'>"
+                + "<table>"
+                +   "<thead><tr>"
+                +     "<th>Invoice No</th><th>Date</th>"
+                +     "<th style='text-align:right;'>Amount</th>"
+                +     profitHeader
+                +     "<th style='text-align:center;'>Status</th>"
+                +   "</tr></thead>"
+                +   "<tbody>" + rows + "</tbody>"
+                + "</table>"
+                + "<div class='totals-wrap'><div class='totals-box'>"
+                +   "<div class='totals-header'>Summary</div>"
+                +   "<div class='totals-grid'>"
+                +     "<span class='label'>" + data.total_label + "</span>"
+                +     "<span class='value'>R " + Number(data.total_revenue).toLocaleString() + "</span>"
+                +     profitTotal
+                +     "<span class='label'>Paid</span>"
+                +     "<span class='paid-value'>R " + Number(data.paid).toLocaleString() + "</span>"
+                +     "<span class='label outstanding-label'>Outstanding</span>"
+                +     "<span class='outstanding-value'>R " + Number(data.outstanding).toLocaleString() + "</span>"
+                +   "</div>"
+                + "</div></div>"
+                + "<div class='footer'>"
+                +   "<small>Generated by Mok Transports Finance System</small>"
+                +   "<small>Mok Transports Pty Ltd \u2014 Confidential</small>"
+                + "</div>"
+                + "</body></html>";
 
-                .title {
-                    font-size:20px;
-                    font-weight:bold;
-                    color:#0d47a1;
-                }
-
-                table {
-                    width:100%;
-                    border-collapse:collapse;
-                    margin-top:20px;
-                }
-
-                th, td {
-                    border:1px solid #000;
-                    padding:8px;
-                    text-align:left;
-                }
-
-                th {
-                    background:#fff;
-                    font-weight:bold;
-                    color:#000;
-                }
-
-                .totals-box {
-                    margin-top:20px;
-                    float:right;
-                    border:1px solid #000;
-                    padding:10px;
-                    width:250px;
-                }
-            </style>
-        </head>
-
-        <body>
-
-            <div class="header">
-                <div class="left-header">
-                    <img src="${window.location.origin}/static/logo.png" style="height:60px;">
-                    <div class="company-name">Mok Transports Pty Ltd</div>
-                </div>
-
-                <div class="title">
-                    CLIENT STATEMENT
-                </div>
-            </div>
-
-            ${content}
-
-        </body>
-        </html>
-    `);
-
+            const win = window.open("", "_blank", "width=900,height=700");
+            win.document.write(html);
             win.document.close();
-            win.print();
+            win.onload = function() { win.print(); };
         }
 
-        function exportStatementExcel() {
+                function exportStatementExcel() {
 
             const party = document.getElementById("statementParty").value
             const month = document.getElementById("statementMonth").value
@@ -1249,10 +1051,10 @@
         loadKPIs()
         loadCashflowTrend()
         loadLatePayments()
-        loadPaymentReminders()
 
     </script>
 
 </body>
 
 </html>
+
