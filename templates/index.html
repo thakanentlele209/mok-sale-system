@@ -282,6 +282,40 @@
         </button>
     </div>
 
+    
+    <div class="card">
+
+        <h3>Client Monthly Statement</h3>
+
+        <select id="statementParty">
+            {% for p in parties %}
+            <option value="{{p}}">{{p}}</option>
+            {% endfor %}
+        </select>
+
+        <input type="month" id="statementMonth">
+
+        <select id="statementType">
+            <option value="internal">Internal</option>
+            <option value="client">Client Version</option>
+        </select>
+
+        <br><br>
+
+        <br><br>
+
+        <button onclick="generateStatement()">Generate Statement</button>
+        <button onclick="exportStatementExcel()">Export Excel</button>
+        <button onclick="printStatement()">Download PDF</button>
+        <button onclick="emailStatement()">Email Statement</button>
+
+        <br><br>
+
+        <div id="statementResult"></div>
+
+    </div>
+
+
     <div class="card">
         <h3>Sales Records</h3>
 
@@ -337,38 +371,6 @@
     </div>
 
     <br><br>
-
-    <div class="card">
-
-        <h3>Client Monthly Statement</h3>
-
-        <select id="statementParty">
-            {% for p in parties %}
-            <option value="{{p}}">{{p}}</option>
-            {% endfor %}
-        </select>
-
-        <input type="month" id="statementMonth">
-
-        <select id="statementType">
-            <option value="internal">Internal</option>
-            <option value="client">Client Version</option>
-        </select>
-
-        <br><br>
-
-        <br><br>
-
-        <button onclick="generateStatement()">Generate Statement</button>
-        <button onclick="exportStatementExcel()">Export Excel</button>
-        <button onclick="printStatement()">Download PDF</button>
-        <button onclick="emailStatement()">Email Statement</button>
-
-        <br><br>
-
-        <div id="statementResult"></div>
-
-    </div>
 
     <div class="card">
         <h3>Late Payment Alerts</h3>
