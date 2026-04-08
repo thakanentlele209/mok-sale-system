@@ -987,8 +987,57 @@ def late_payment_alerts(request: Request):
     return {"alerts": alerts}
 
 
+# ---------------- PAYMENT REMINDERS ----------------
 
-@app.get("/client-growth-opportunities")
+@app.get("/payment-reminders")
+def payment_reminders(request: Request):
+
+    if not require_role(request, ["owner", "accounts"]):
+        return {"error": "permission denied"}
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT party, invoice_no, client_charge
+        FROM sales
+        WHERE paid_status != 'Paid'
+        AND sale_date IS NOT NULL
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    if not rows:
+        return {"clients": []}
+
+    df = pd.DataFrame(rows)
+    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
+
+    grouped = (
+        df.groupby("party")
+        .agg(
+            outstanding=("client_charge", "sum"),
+            invoice_count=("invoice_no", "count")
+        )
+        .reset_index()
+        .sort_values("outstanding", ascending=False)
+    )
+
+    clients = [
+        {
+            "party":         row["party"],
+            "outstanding":   float(row["outstanding"]),
+            "invoice_count": int(row["invoice_count"])
+        }
+        for _, row in grouped.iterrows()
+    ]
+
+    return {"clients": clients}
+
+
 def client_growth_opportunities(request: Request):
 
     if not require_role(request, ["owner"]):
@@ -1395,10 +1444,4 @@ if __name__=="__main__":
         port=port
     )
 
-
-
-
-
-
- 
- 
+    

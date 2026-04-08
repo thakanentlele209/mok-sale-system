@@ -316,6 +316,81 @@
     </div>
 
 
+    <!-- ===== PAYMENT REMINDERS ===== -->
+    <div class="card" id="paymentRemindersCard">
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 style="margin:0;color:#0d47a1;">🔔 Payment Reminders</h3>
+            <span id="reminderWindowBadge" style="
+                border-radius:20px;padding:4px 14px;font-size:13px;
+                font-weight:bold;display:none;
+            "></span>
+        </div>
+
+        <!-- Active window banner -->
+        <div id="reminderBanner" style="display:none;
+            background:#e8f5e9;border-left:5px solid #2e7d32;
+            border-radius:8px;padding:14px 18px;margin-bottom:18px;">
+            <div style="font-size:15px;font-weight:bold;color:#2e7d32;">
+                📅 Month-End Collection Window is Active
+            </div>
+            <div style="font-size:13px;color:#444;margin-top:4px;">
+                It's time to remind clients of their outstanding balances. 
+                Work through the list below and mark each client as reminded.
+            </div>
+        </div>
+
+        <!-- Inactive window notice -->
+        <div id="reminderInactive" style="display:none;
+            background:#f1f5f9;border-left:5px solid #94a3b8;
+            border-radius:8px;padding:14px 18px;margin-bottom:18px;">
+            <div style="font-size:14px;color:#555;">
+                🕐 The reminder window runs from the <b>25th to the 2nd</b> of each month.
+                The list below shows all current outstanding balances for your reference.
+            </div>
+        </div>
+
+        <!-- Summary row -->
+        <div id="reminderSummary" style="
+            display:none;grid-template-columns:repeat(3,1fr);
+            gap:12px;margin-bottom:18px;
+        ">
+            <div style="background:#e8f5e9;border-radius:8px;padding:12px;border-left:4px solid #2e7d32;text-align:center;">
+                <div style="font-size:12px;color:#888;">Clients to Contact</div>
+                <div id="reminderCount" style="font-size:22px;font-weight:bold;color:#2e7d32;">0</div>
+            </div>
+            <div style="background:#fff7ed;border-radius:8px;padding:12px;border-left:4px solid #f59e0b;text-align:center;">
+                <div style="font-size:12px;color:#888;">Total Outstanding</div>
+                <div id="reminderTotal" style="font-size:22px;font-weight:bold;color:#f59e0b;">R 0</div>
+            </div>
+            <div style="background:#e8f5e9;border-radius:8px;padding:12px;border-left:4px solid #1b5e20;text-align:center;">
+                <div style="font-size:12px;color:#888;">Already Reminded</div>
+                <div id="reminderDoneCount" style="font-size:22px;font-weight:bold;color:#1b5e20;">0</div>
+            </div>
+        </div>
+
+        <div id="reminderEmpty" style="display:none;color:#555;padding:10px 0;">
+            ✅ No outstanding balances to follow up on.
+        </div>
+
+        <div id="reminderTableWrap" style="display:none;overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Client</th>
+                        <th>Unpaid Invoices</th>
+                        <th>Total Outstanding</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="reminderBody"></tbody>
+            </table>
+        </div>
+
+    </div>
+    <!-- ===== END PAYMENT REMINDERS ===== -->
+
     <div class="card">
         <h3>Sales Records</h3>
 
@@ -372,9 +447,53 @@
 
     <br><br>
 
-    <div class="card">
-        <h3>Late Payment Alerts</h3>
-        <ul id="lateAlerts"></ul>
+    <div class="card" id="latePaymentCard">
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 style="margin:0;color:#0d47a1;">⚠️ Late Payment Alerts</h3>
+            <span id="lateAlertsBadge" style="
+                background:#c62828;color:white;border-radius:20px;
+                padding:4px 14px;font-size:13px;font-weight:bold;display:none;
+            ">0 Overdue</span>
+        </div>
+
+        <div id="lateAlertsEmpty" style="display:none;color:#555;padding:10px 0;">
+            ✅ No overdue invoices at this time.
+        </div>
+
+        <div id="lateAlertsSummary" style="
+            display:none;grid-template-columns:repeat(3,1fr);
+            gap:12px;margin-bottom:18px;
+        ">
+            <div style="background:#fef2f2;border-radius:8px;padding:12px;border-left:4px solid #c62828;text-align:center;">
+                <div style="font-size:12px;color:#888;">Total Overdue</div>
+                <div id="summaryCount" style="font-size:22px;font-weight:bold;color:#c62828;">0</div>
+            </div>
+            <div style="background:#fff7ed;border-radius:8px;padding:12px;border-left:4px solid #f59e0b;text-align:center;">
+                <div style="font-size:12px;color:#888;">Amount Outstanding</div>
+                <div id="summaryAmount" style="font-size:22px;font-weight:bold;color:#f59e0b;">R 0</div>
+            </div>
+            <div style="background:#fef2f2;border-radius:8px;padding:12px;border-left:4px solid #7f1d1d;text-align:center;">
+                <div style="font-size:12px;color:#888;">Longest Overdue</div>
+                <div id="summaryMaxDays" style="font-size:22px;font-weight:bold;color:#7f1d1d;">0 days</div>
+            </div>
+        </div>
+
+        <div id="lateAlertsTableWrap" style="display:none;overflow-x:auto;">
+            <table id="lateAlertsTable">
+                <thead>
+                    <tr>
+                        <th>Client</th>
+                        <th>Invoice No</th>
+                        <th>Days Overdue</th>
+                        <th>Amount</th>
+                        <th>Urgency</th>
+                    </tr>
+                </thead>
+                <tbody id="lateAlertsBody"></tbody>
+            </table>
+        </div>
+
     </div>
 
     <div class="card">
@@ -433,20 +552,146 @@
 
             const res = await fetch("/late-payment-alerts")
             const data = await res.json()
+            const alerts = data.alerts || []
 
-            const list = document.getElementById("lateAlerts")
-            list.innerHTML = ""
+            const badge     = document.getElementById("lateAlertsBadge")
+            const empty     = document.getElementById("lateAlertsEmpty")
+            const summary   = document.getElementById("lateAlertsSummary")
+            const tableWrap = document.getElementById("lateAlertsTableWrap")
+            const tbody     = document.getElementById("lateAlertsBody")
 
-            data.alerts.forEach(a => {
+            tbody.innerHTML = ""
 
-                const li = document.createElement("li")
+            if (alerts.length === 0) {
+                empty.style.display     = "block"
+                summary.style.display   = "none"
+                tableWrap.style.display = "none"
+                badge.style.display     = "none"
+                return
+            }
 
-                li.textContent = `${a.party} invoice ${a.invoice} overdue ${a.days} days (R ${a.amount})`
+            const totalAmount = alerts.reduce((s, a) => s + a.amount, 0)
+            const maxDays     = Math.max(...alerts.map(a => a.days))
 
-                list.appendChild(li)
+            badge.style.display     = "inline-block"
+            badge.textContent       = `${alerts.length} Overdue`
+            summary.style.display   = "grid"
+            tableWrap.style.display = "block"
+            empty.style.display     = "none"
 
+            document.getElementById("summaryCount").textContent   = alerts.length
+            document.getElementById("summaryAmount").textContent  = "R " + totalAmount.toLocaleString()
+            document.getElementById("summaryMaxDays").textContent = maxDays + " days"
+
+            alerts.sort((a, b) => b.days - a.days)
+
+            alerts.forEach(a => {
+                let label, style
+                if (a.days > 90) {
+                    label = "🔴 Critical"
+                    style = "background:#fde8e8;color:#b91c1c;padding:3px 10px;border-radius:12px;font-weight:bold;font-size:12px;"
+                } else if (a.days > 60) {
+                    label = "🟠 High"
+                    style = "background:#fff3e0;color:#d97706;padding:3px 10px;border-radius:12px;font-weight:bold;font-size:12px;"
+                } else {
+                    label = "🟡 Moderate"
+                    style = "background:#fefce8;color:#a16207;padding:3px 10px;border-radius:12px;font-weight:bold;font-size:12px;"
+                }
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${a.party}</b></td>
+                        <td>${a.invoice}</td>
+                        <td style="color:#c62828;font-weight:bold;">${a.days} days</td>
+                        <td>R ${Number(a.amount).toLocaleString()}</td>
+                        <td><span style="${style}">${label}</span></td>
+                    </tr>`
             })
+        }
 
+        // ======== PAYMENT REMINDERS ========
+        const reminderSentSet = new Set()
+
+        async function loadPaymentReminders() {
+
+            const res = await fetch("/payment-reminders")
+            const data = await res.json()
+            const clients = data.clients || []
+
+            const today    = new Date()
+            const day      = today.getDate()
+            const isActive = day >= 25 || day <= 2
+
+            const banner    = document.getElementById("reminderBanner")
+            const inactive  = document.getElementById("reminderInactive")
+            const badge     = document.getElementById("reminderWindowBadge")
+            const summary   = document.getElementById("reminderSummary")
+            const empty     = document.getElementById("reminderEmpty")
+            const tableWrap = document.getElementById("reminderTableWrap")
+            const tbody     = document.getElementById("reminderBody")
+
+            banner.style.display   = isActive ? "block" : "none"
+            inactive.style.display = isActive ? "none"  : "block"
+
+            badge.style.display = "inline-block"
+            if (isActive) {
+                badge.textContent        = "🟢 Window Active"
+                badge.style.background   = "#2e7d32"
+                badge.style.color        = "white"
+            } else {
+                badge.textContent        = "⏸ Outside Window"
+                badge.style.background   = "#94a3b8"
+                badge.style.color        = "white"
+            }
+
+            if (clients.length === 0) {
+                empty.style.display     = "block"
+                summary.style.display   = "none"
+                tableWrap.style.display = "none"
+                return
+            }
+
+            empty.style.display     = "none"
+            summary.style.display   = "grid"
+            tableWrap.style.display = "block"
+
+            const total     = clients.reduce((s, c) => s + c.outstanding, 0)
+            const doneCount = clients.filter(c => reminderSentSet.has(c.party)).length
+
+            document.getElementById("reminderCount").textContent     = clients.length
+            document.getElementById("reminderTotal").textContent     = "R " + total.toLocaleString()
+            document.getElementById("reminderDoneCount").textContent = doneCount
+
+            tbody.innerHTML = ""
+
+            clients.forEach(c => {
+                const reminded    = reminderSentSet.has(c.party)
+                const rowStyle    = reminded ? "background:#f0fdf4;" : ""
+                const statusBadge = reminded
+                    ? `<span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:bold;">✅ Reminder Sent</span>`
+                    : `<span style="background:#fff7ed;color:#c2410c;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:bold;">⏳ Pending</span>`
+                const actionBtn = reminded
+                    ? `<button style="background:#6b7280;font-size:12px;padding:6px 12px;" onclick="undoReminder('${c.party}')">Undo</button>`
+                    : `<button style="background:#2e7d32;font-size:12px;padding:6px 12px;" onclick="markReminded('${c.party}')">Mark Reminded</button>`
+
+                tbody.innerHTML += `
+                    <tr style="${rowStyle}">
+                        <td><b>${c.party}</b></td>
+                        <td style="text-align:center;">${c.invoice_count}</td>
+                        <td style="font-weight:bold;color:#c2410c;">R ${Number(c.outstanding).toLocaleString()}</td>
+                        <td>${statusBadge}</td>
+                        <td>${actionBtn}</td>
+                    </tr>`
+            })
+        }
+
+        function markReminded(party) {
+            reminderSentSet.add(party)
+            loadPaymentReminders()
+        }
+
+        function undoReminder(party) {
+            reminderSentSet.delete(party)
+            loadPaymentReminders()
         }
 
         async function loadMonthlyDashboard() {
@@ -1004,13 +1249,10 @@
         loadKPIs()
         loadCashflowTrend()
         loadLatePayments()
+        loadPaymentReminders()
 
     </script>
 
 </body>
 
 </html>
-
-
-
-
