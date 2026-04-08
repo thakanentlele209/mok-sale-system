@@ -282,7 +282,7 @@
         </button>
     </div>
 
-    
+
     <div class="card">
 
         <h3>Client Monthly Statement</h3>
@@ -314,6 +314,85 @@
         <div id="statementResult"></div>
 
     </div>
+
+    <!-- ===== PAYMENT REMINDERS ===== -->
+    <div class="card" id="paymentRemindersCard">
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 style="margin:0;color:#0d47a1;">🔔 Payment Reminders</h3>
+            <span id="reminderWindowBadge" style="
+                border-radius:20px;padding:4px 14px;font-size:13px;
+                font-weight:bold;display:none;
+            "></span>
+        </div>
+
+        <!-- Active window banner -->
+        <div id="reminderBanner" style="display:none;
+            background:#e8f5e9;border-left:5px solid #2e7d32;
+            border-radius:8px;padding:14px 18px;margin-bottom:18px;">
+            <div style="font-size:15px;font-weight:bold;color:#2e7d32;">
+                📅 Month-End Collection Window is Active
+            </div>
+            <div style="font-size:13px;color:#444;margin-top:4px;">
+                It's time to remind clients of their outstanding balances.
+                Work through the list below and mark each client as reminded.
+            </div>
+        </div>
+
+        <!-- Inactive window notice -->
+        <div id="reminderInactive" style="display:none;
+            background:#f1f5f9;border-left:5px solid #94a3b8;
+            border-radius:8px;padding:14px 18px;margin-bottom:18px;">
+            <div style="font-size:14px;color:#555;">
+                🕐 The reminder window runs from the <b>25th to the 2nd</b> of each month.
+                The list below shows all current outstanding balances for your reference.
+            </div>
+        </div>
+
+        <!-- Summary row -->
+        <div id="reminderSummary" style="
+            display:none;grid-template-columns:repeat(3,1fr);
+            gap:12px;margin-bottom:18px;
+        ">
+            <div
+                style="background:#e8f5e9;border-radius:8px;padding:12px;border-left:4px solid #2e7d32;text-align:center;">
+                <div style="font-size:12px;color:#888;">Clients to Contact</div>
+                <div id="reminderCount" style="font-size:22px;font-weight:bold;color:#2e7d32;">0</div>
+            </div>
+            <div
+                style="background:#fff7ed;border-radius:8px;padding:12px;border-left:4px solid #f59e0b;text-align:center;">
+                <div style="font-size:12px;color:#888;">Total Outstanding</div>
+                <div id="reminderTotal" style="font-size:22px;font-weight:bold;color:#f59e0b;">R 0</div>
+            </div>
+            <div
+                style="background:#e8f5e9;border-radius:8px;padding:12px;border-left:4px solid #1b5e20;text-align:center;">
+                <div style="font-size:12px;color:#888;">Already Reminded</div>
+                <div id="reminderDoneCount" style="font-size:22px;font-weight:bold;color:#1b5e20;">0</div>
+            </div>
+        </div>
+
+        <div id="reminderEmpty" style="display:none;color:#555;padding:10px 0;">
+            ✅ No outstanding balances to follow up on.
+        </div>
+
+        <div id="reminderTableWrap" style="display:none;overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Client</th>
+                        <th>Unpaid Invoices</th>
+                        <th>Total Outstanding</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="reminderBody"></tbody>
+            </table>
+        </div>
+
+    </div>
+    <!-- ===== END PAYMENT REMINDERS ===== -->
+
 
 
     <div class="card">
@@ -427,6 +506,92 @@
             document.getElementById("kpiPaid").innerText = "R " + Number(data.paid_total || 0).toLocaleString()
             document.getElementById("kpiOutstanding").innerText = "R " + Number(data.outstanding_total || 0).toLocaleString()
 
+        }
+
+        // ======== PAYMENT REMINDERS ========
+        const reminderSentSet = new Set()
+
+        async function loadPaymentReminders() {
+
+            const res = await fetch("/payment-reminders")
+            const data = await res.json()
+            const clients = data.clients || []
+
+            const today = new Date()
+            const day = today.getDate()
+            const isActive = day >= 25 || day <= 2
+
+            const banner = document.getElementById("reminderBanner")
+            const inactive = document.getElementById("reminderInactive")
+            const badge = document.getElementById("reminderWindowBadge")
+            const summary = document.getElementById("reminderSummary")
+            const empty = document.getElementById("reminderEmpty")
+            const tableWrap = document.getElementById("reminderTableWrap")
+            const tbody = document.getElementById("reminderBody")
+
+            banner.style.display = isActive ? "block" : "none"
+            inactive.style.display = isActive ? "none" : "block"
+
+            badge.style.display = "inline-block"
+            if (isActive) {
+                badge.textContent = "🟢 Window Active"
+                badge.style.background = "#2e7d32"
+                badge.style.color = "white"
+            } else {
+                badge.textContent = "⏸ Outside Window"
+                badge.style.background = "#94a3b8"
+                badge.style.color = "white"
+            }
+
+            if (clients.length === 0) {
+                empty.style.display = "block"
+                summary.style.display = "none"
+                tableWrap.style.display = "none"
+                return
+            }
+
+            empty.style.display = "none"
+            summary.style.display = "grid"
+            tableWrap.style.display = "block"
+
+            const total = clients.reduce((s, c) => s + c.outstanding, 0)
+            const doneCount = clients.filter(c => reminderSentSet.has(c.party)).length
+
+            document.getElementById("reminderCount").textContent = clients.length
+            document.getElementById("reminderTotal").textContent = "R " + total.toLocaleString()
+            document.getElementById("reminderDoneCount").textContent = doneCount
+
+            tbody.innerHTML = ""
+
+            clients.forEach(c => {
+                const reminded = reminderSentSet.has(c.party)
+                const rowStyle = reminded ? "background:#f0fdf4;" : ""
+                const statusBadge = reminded
+                    ? `<span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:bold;">✅ Reminder Sent</span>`
+                    : `<span style="background:#fff7ed;color:#c2410c;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:bold;">⏳ Pending</span>`
+                const actionBtn = reminded
+                    ? `<button style="background:#6b7280;font-size:12px;padding:6px 12px;" onclick="undoReminder('${c.party}')">Undo</button>`
+                    : `<button style="background:#2e7d32;font-size:12px;padding:6px 12px;" onclick="markReminded('${c.party}')">Mark Reminded</button>`
+
+                tbody.innerHTML += `
+                    <tr style="${rowStyle}">
+                        <td><b>${c.party}</b></td>
+                        <td style="text-align:center;">${c.invoice_count}</td>
+                        <td style="font-weight:bold;color:#c2410c;">R ${Number(c.outstanding).toLocaleString()}</td>
+                        <td>${statusBadge}</td>
+                        <td>${actionBtn}</td>
+                    </tr>`
+            })
+        }
+
+        function markReminded(party) {
+            reminderSentSet.add(party)
+            loadPaymentReminders()
+        }
+
+        function undoReminder(party) {
+            reminderSentSet.delete(party)
+            loadPaymentReminders()
         }
 
         async function loadLatePayments() {
@@ -765,9 +930,9 @@
 
             const party = document.getElementById("statementParty").value;
             const month = document.getElementById("statementMonth").value;
-            const type  = document.getElementById("statementType").value;
+            const type = document.getElementById("statementType").value;
 
-            const res  = await fetch(`/client-statement?party=${encodeURIComponent(party)}&month=${month}&view=${type}`);
+            const res = await fetch(`/client-statement?party=${encodeURIComponent(party)}&month=${month}&view=${type}`);
             const data = await res.json();
 
             if (data.error) { alert(data.error); return; }
@@ -896,36 +1061,36 @@
 
         }
 
-                function printStatement() {
+        function printStatement() {
 
             if (!lastStatementData) {
                 alert("Please generate a statement first.");
                 return;
             }
 
-            const data       = lastStatementData;
+            const data = lastStatementData;
             const showProfit = lastStatementType === "internal";
-            const logoUrl    = window.location.origin + "/static/logo.png";
-            const today      = new Date().toLocaleDateString("en-ZA");
+            const logoUrl = window.location.origin + "/static/logo.png";
+            const today = new Date().toLocaleDateString("en-ZA");
 
             let rows = "";
-            data.invoices.forEach(function(i) {
-                const isPaid   = i.paid_status === "Paid";
-                const bgColor  = isPaid ? "#d1fae5" : "#fde8e8";
+            data.invoices.forEach(function (i) {
+                const isPaid = i.paid_status === "Paid";
+                const bgColor = isPaid ? "#d1fae5" : "#fde8e8";
                 const txtColor = isPaid ? "#065f46" : "#b91c1c";
                 const profitTd = showProfit
                     ? "<td style='text-align:right;'>R " + Number(i.profit).toLocaleString() + "</td>"
                     : "";
                 rows += "<tr>"
-                      + "<td>" + i.invoice_no + "</td>"
-                      + "<td>" + i.sale_date  + "</td>"
-                      + "<td style='text-align:right;'>R " + Number(i.client_charge).toLocaleString() + "</td>"
-                      + profitTd
-                      + "<td style='text-align:center;'>"
-                      + "<span style='display:inline-block;padding:2px 10px;border-radius:10px;"
-                      + "font-size:11px;font-weight:bold;background:" + bgColor + ";color:" + txtColor + ";'>"
-                      + i.paid_status + "</span></td>"
-                      + "</tr>";
+                    + "<td>" + i.invoice_no + "</td>"
+                    + "<td>" + i.sale_date + "</td>"
+                    + "<td style='text-align:right;'>R " + Number(i.client_charge).toLocaleString() + "</td>"
+                    + profitTd
+                    + "<td style='text-align:center;'>"
+                    + "<span style='display:inline-block;padding:2px 10px;border-radius:10px;"
+                    + "font-size:11px;font-weight:bold;background:" + bgColor + ";color:" + txtColor + ";'>"
+                    + i.paid_status + "</span></td>"
+                    + "</tr>";
             });
 
             const profitHeader = showProfit
@@ -973,52 +1138,52 @@
                 + "<style>" + css + "</style>"
                 + "</head><body>"
                 + "<div class='header'>"
-                +   "<div class='header-left'>"
-                +     "<img src='" + logoUrl + "' onerror=\"this.style.display='none'\">"
-                +     "<div class='company'>Mok Transports Pty Ltd</div>"
-                +   "</div>"
-                +   "<div class='header-right'>"
-                +     "<div class='title'>CLIENT STATEMENT</div>"
-                +     "<div class='client-name'>" + data.party + "</div>"
-                +     "<div class='meta'>Period: " + data.month + "</div>"
-                +     "<div class='meta'>Generated: " + today + "</div>"
-                +   "</div>"
+                + "<div class='header-left'>"
+                + "<img src='" + logoUrl + "' onerror=\"this.style.display='none'\">"
+                + "<div class='company'>Mok Transports Pty Ltd</div>"
+                + "</div>"
+                + "<div class='header-right'>"
+                + "<div class='title'>CLIENT STATEMENT</div>"
+                + "<div class='client-name'>" + data.party + "</div>"
+                + "<div class='meta'>Period: " + data.month + "</div>"
+                + "<div class='meta'>Generated: " + today + "</div>"
+                + "</div>"
                 + "</div>"
                 + "<hr class='divider'>"
                 + "<table>"
-                +   "<thead><tr>"
-                +     "<th>Invoice No</th><th>Date</th>"
-                +     "<th style='text-align:right;'>Amount</th>"
-                +     profitHeader
-                +     "<th style='text-align:center;'>Status</th>"
-                +   "</tr></thead>"
-                +   "<tbody>" + rows + "</tbody>"
+                + "<thead><tr>"
+                + "<th>Invoice No</th><th>Date</th>"
+                + "<th style='text-align:right;'>Amount</th>"
+                + profitHeader
+                + "<th style='text-align:center;'>Status</th>"
+                + "</tr></thead>"
+                + "<tbody>" + rows + "</tbody>"
                 + "</table>"
                 + "<div class='totals-wrap'><div class='totals-box'>"
-                +   "<div class='totals-header'>Summary</div>"
-                +   "<div class='totals-grid'>"
-                +     "<span class='label'>" + data.total_label + "</span>"
-                +     "<span class='value'>R " + Number(data.total_revenue).toLocaleString() + "</span>"
-                +     profitTotal
-                +     "<span class='label'>Paid</span>"
-                +     "<span class='paid-value'>R " + Number(data.paid).toLocaleString() + "</span>"
-                +     "<span class='label outstanding-label'>Outstanding</span>"
-                +     "<span class='outstanding-value'>R " + Number(data.outstanding).toLocaleString() + "</span>"
-                +   "</div>"
+                + "<div class='totals-header'>Summary</div>"
+                + "<div class='totals-grid'>"
+                + "<span class='label'>" + data.total_label + "</span>"
+                + "<span class='value'>R " + Number(data.total_revenue).toLocaleString() + "</span>"
+                + profitTotal
+                + "<span class='label'>Paid</span>"
+                + "<span class='paid-value'>R " + Number(data.paid).toLocaleString() + "</span>"
+                + "<span class='label outstanding-label'>Outstanding</span>"
+                + "<span class='outstanding-value'>R " + Number(data.outstanding).toLocaleString() + "</span>"
+                + "</div>"
                 + "</div></div>"
                 + "<div class='footer'>"
-                +   "<small>Generated by Mok Transports Finance System</small>"
-                +   "<small>Mok Transports Pty Ltd \u2014 Confidential</small>"
+                + "<small>Generated by Mok Transports Finance System</small>"
+                + "<small>Mok Transports Pty Ltd \u2014 Confidential</small>"
                 + "</div>"
                 + "</body></html>";
 
             const win = window.open("", "_blank", "width=900,height=700");
             win.document.write(html);
             win.document.close();
-            win.onload = function() { win.print(); };
+            win.onload = function () { win.print(); };
         }
 
-                function exportStatementExcel() {
+        function exportStatementExcel() {
 
             const party = document.getElementById("statementParty").value
             const month = document.getElementById("statementMonth").value
@@ -1051,6 +1216,7 @@
         loadKPIs()
         loadCashflowTrend()
         loadLatePayments()
+        loadPaymentReminders()
 
     </script>
 
