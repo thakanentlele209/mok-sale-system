@@ -285,7 +285,7 @@
 
     <div class="card">
 
-        <h3>Client Monthly Statement</h3>
+        <h3>Client Statement</h3>
 
         <select id="statementParty">
             {% for p in parties %}
@@ -293,7 +293,11 @@
             {% endfor %}
         </select>
 
-        <input type="month" id="statementMonth">
+        <label for="statementFrom" style="margin-left:8px;">From</label>
+        <input type="date" id="statementFrom">
+
+        <label for="statementTo" style="margin-left:8px;">To</label>
+        <input type="date" id="statementTo">
 
         <select id="statementType">
             <option value="internal">Internal</option>
@@ -929,10 +933,11 @@
         async function generateStatement() {
 
             const party = document.getElementById("statementParty").value;
-            const month = document.getElementById("statementMonth").value;
             const type = document.getElementById("statementType").value;
+            const range = getStatementRange();
+            if (!range) return;
 
-            const res = await fetch(`/client-statement?party=${encodeURIComponent(party)}&month=${month}&view=${type}`);
+            const res = await fetch(`/client-statement?party=${encodeURIComponent(party)}&date_from=${range.from}&date_to=${range.to}&view=${type}`);
             const data = await res.json();
 
             if (data.error) { alert(data.error); return; }
@@ -974,7 +979,7 @@
                     <div style="text-align:right;">
                         <div style="font-size:22px;font-weight:bold;color:#0d47a1;letter-spacing:1px;">CLIENT STATEMENT</div>
                         <div style="font-size:16px;font-weight:bold;margin-top:4px;">${data.party}</div>
-                        <div style="font-size:13px;color:#666;margin-top:2px;">Period: ${data.month}</div>
+                        <div style="font-size:13px;color:#666;margin-top:2px;">Period: ${data.period}</div>
                         <div style="font-size:12px;color:#999;margin-top:2px;">Generated: ${new Date().toLocaleDateString("en-ZA")}</div>
                     </div>
                 </div>
@@ -1134,7 +1139,7 @@
 
             const html = "<!DOCTYPE html>"
                 + "<html><head>"
-                + "<title>Statement - " + data.party + " - " + data.month + "</title>"
+                + "<title>Statement - " + data.party + " - " + data.period + "</title>"
                 + "<style>" + css + "</style>"
                 + "</head><body>"
                 + "<div class='header'>"
@@ -1145,7 +1150,7 @@
                 + "<div class='header-right'>"
                 + "<div class='title'>CLIENT STATEMENT</div>"
                 + "<div class='client-name'>" + data.party + "</div>"
-                + "<div class='meta'>Period: " + data.month + "</div>"
+                + "<div class='meta'>Period: " + data.period + "</div>"
                 + "<div class='meta'>Generated: " + today + "</div>"
                 + "</div>"
                 + "</div>"
@@ -1183,22 +1188,56 @@
             win.onload = function () { win.print(); };
         }
 
+        // Reads and validates the From / To dates for the statement
+        function getStatementRange() {
+
+            const from = document.getElementById("statementFrom").value
+            const to = document.getElementById("statementTo").value
+
+            if (!from || !to) {
+                alert("Please select both a From date and a To date.")
+                return null
+            }
+
+            if (from > to) {
+                alert("The From date cannot be after the To date.")
+                return null
+            }
+
+            return { from, to }
+        }
+
+        // Default the range to the current month so the form is ready to use
+        function setDefaultStatementRange() {
+
+            const now = new Date()
+            const pad = n => String(n).padStart(2, "0")
+            const first = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`
+            const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+
+            document.getElementById("statementFrom").value = first
+            document.getElementById("statementTo").value = today
+        }
+
         function exportStatementExcel() {
 
             const party = document.getElementById("statementParty").value
-            const month = document.getElementById("statementMonth").value
+            const type = document.getElementById("statementType").value
+            const range = getStatementRange()
+            if (!range) return
 
-            window.open(`/export-client-statement?party=${encodeURIComponent(party)}&month=${month}`)
+            window.open(`/export-client-statement?party=${encodeURIComponent(party)}&date_from=${range.from}&date_to=${range.to}&view=${type}`)
         }
 
         async function emailStatement() {
 
             const party = document.getElementById("statementParty").value
-            const month = document.getElementById("statementMonth").value
+            const range = getStatementRange()
+            if (!range) return
 
             const email = prompt("Enter client email (or leave blank for Ryan only):")
 
-            const res = await fetch(`/email-client-statement?party=${encodeURIComponent(party)}&month=${month}&email=${email || ""}`, {
+            const res = await fetch(`/email-client-statement?party=${encodeURIComponent(party)}&date_from=${range.from}&date_to=${range.to}&email=${encodeURIComponent(email || "")}`, {
                 method: "POST"
             })
 
@@ -1207,6 +1246,7 @@
             alert(data.message || data.error)
         }
 
+        setDefaultStatementRange()
         loadSales()
         loadMonthlyDashboard()
         loadPartyDashboard()
@@ -1223,4 +1263,5 @@
 </body>
 
 </html>
+
 

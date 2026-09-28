@@ -346,9 +346,48 @@ def search_sales(q: str = ""):
     return rows
 
 # ---------------- Client Statement ----------------
-@app.get("/client-statement")
-def client_statement(party: str, month: str, view: str = "internal"):
+from datetime import date as _date, datetime as _datetime, timedelta as _timedelta
+import calendar as _calendar
 
+
+def resolve_statement_period(date_from: str = "", date_to: str = "", month: str = ""):
+    """
+    Returns (start_date, end_date) as date objects, both inclusive.
+    Accepts a custom range (date_from / date_to, YYYY-MM-DD) or, for backward
+    compatibility, a single month (YYYY-MM).
+    Raises ValueError with a user-friendly message if the input is invalid.
+    """
+    if date_from or date_to:
+        if not (date_from and date_to):
+            raise ValueError("Please select both a From date and a To date")
+        try:
+            start = _datetime.strptime(date_from, "%Y-%m-%d").date()
+            end = _datetime.strptime(date_to, "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError("Invalid date format")
+    elif month:
+        try:
+            first = _datetime.strptime(month, "%Y-%m").date()
+        except ValueError:
+            raise ValueError("Invalid month format")
+        start = first
+        end = first.replace(day=_calendar.monthrange(first.year, first.month)[1])
+    else:
+        raise ValueError("Please select a date range")
+
+    if start > end:
+        raise ValueError("The From date cannot be after the To date")
+
+    return start, end
+
+
+def format_statement_period(start, end):
+    """Human readable period label, e.g. '01 Jun 2026 - 30 Sep 2026'."""
+    return f"{start.strftime('%d %b %Y')} - {end.strftime('%d %b %Y')}"
+
+
+def fetch_statement_rows(party: str, start, end):
+    """Sales rows for one client between start and end (inclusive)."""
     conn = get_conn()
     cur = conn.cursor()
 
@@ -357,35 +396,44 @@ def client_statement(party: str, month: str, view: str = "internal"):
         FROM sales
         WHERE LOWER(party) = LOWER(%s)
         AND sale_date IS NOT NULL
-        AND TO_CHAR(sale_date,'YYYY-MM') = %s
-        ORDER BY sale_date
-    """, (party, month))
+        AND sale_date >= %s::date
+        AND sale_date < (%s::date + INTERVAL '1 day')
+        ORDER BY sale_date, invoice_no
+    """, (party, start, end))
 
     rows = cur.fetchall()
-
-    # ✅ FIX: get proper column names
     columns = [desc[0] for desc in cur.description]
 
     cur.close()
     conn.close()
 
     if not rows:
-        return {"error": "No data found for this month"}
+        return None
 
-    # ✅ CREATE DATAFRAME CORRECTLY
     df = pd.DataFrame(rows, columns=columns)
 
-    # ✅ CLEAN ONLY WHAT MATTERS
     df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
     df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
-
-    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
-    df["sale_date"] = df["sale_date"].dt.strftime("%Y-%m-%d")
-    df["sale_date"] = df["sale_date"].fillna("")
-
+    df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce").dt.strftime("%Y-%m-%d").fillna("")
     df["paid_status"] = df["paid_status"].fillna("Unpaid")
 
-    # ✅ TOTALS
+    return df
+
+
+@app.get("/client-statement")
+def client_statement(party: str, date_from: str = "", date_to: str = "",
+                     month: str = "", view: str = "internal"):
+
+    try:
+        start, end = resolve_statement_period(date_from, date_to, month)
+    except ValueError as e:
+        return {"error": str(e)}
+
+    df = fetch_statement_rows(party, start, end)
+
+    if df is None:
+        return {"error": "No data found for this period"}
+
     total_revenue = float(df["client_charge"].sum())
     total_profit = float(df["profit"].sum())
     paid = float(df[df["paid_status"] == "Paid"]["client_charge"].sum())
@@ -400,7 +448,9 @@ def client_statement(party: str, month: str, view: str = "internal"):
 
     return {
         "party": party,
-        "month": month,
+        "period": format_statement_period(start, end),
+        "date_from": start.isoformat(),
+        "date_to": end.isoformat(),
         "invoices": data,
         "total_revenue": total_revenue,
         "total_profit": total_profit if view == "internal" else 0,
@@ -1298,32 +1348,18 @@ def ai_client_targeting(request: Request):
 #------------Client Statements----
 
 @app.get("/export-client-statement")
-def export_client_statement(party: str, month: str, view: str = "internal"):
+def export_client_statement(party: str, date_from: str = "", date_to: str = "",
+                            month: str = "", view: str = "internal"):
 
-    conn = get_conn()
-    cur = conn.cursor()
+    try:
+        start, end = resolve_statement_period(date_from, date_to, month)
+    except ValueError as e:
+        return {"error": str(e)}
 
-    cur.execute("""
-        SELECT invoice_no, sale_date, client_charge, profit, paid_status
-        FROM sales
-        WHERE LOWER(party) = LOWER(%s)
-        AND sale_date IS NOT NULL
-        AND TO_CHAR(sale_date,'YYYY-MM') = %s
-        ORDER BY sale_date
-    """, (party, month))
+    df = fetch_statement_rows(party, start, end)
 
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    if not rows:
+    if df is None:
         return {"error": "No data"}
-
-    df = pd.DataFrame(rows)
-
-    df["client_charge"] = pd.to_numeric(df["client_charge"], errors="coerce").fillna(0)
-    df["profit"] = pd.to_numeric(df["profit"], errors="coerce").fillna(0)
 
     total_revenue = df["client_charge"].sum()
     total_profit = df["profit"].sum()
@@ -1338,7 +1374,7 @@ def export_client_statement(party: str, month: str, view: str = "internal"):
     ws["A1"] = "Mok Transports"
     ws["A2"] = "Client Statement"
     ws["A3"] = f"Client: {party}"
-    ws["A4"] = f"Month: {month}"
+    ws["A4"] = f"Period: {format_statement_period(start, end)}"
 
     ws["A1"].font = Font(size=16, bold=True)
     ws["A2"].font = Font(size=14, bold=True)
@@ -1366,13 +1402,13 @@ def export_client_statement(party: str, month: str, view: str = "internal"):
         ws.append(row_data)
 
     ws.append([])
-    ws.append(["Total Revenue", total_revenue])
+    ws.append(["Total Revenue" if view == "internal" else "Total", total_revenue])
     if view == "internal":
         ws.append(["Total Profit", total_profit])
     ws.append(["Paid", paid])
     ws.append(["Outstanding", outstanding])
 
-    file_path = f"{party}_{month}.xlsx"
+    file_path = f"{party}_{start.isoformat()}_to_{end.isoformat()}.xlsx"
     wb.save(file_path)
 
     return FileResponse(file_path, filename=file_path)
@@ -1380,43 +1416,47 @@ def export_client_statement(party: str, month: str, view: str = "internal"):
 #------------Email Statements----
 
 @app.post("/email-client-statement")
-def email_client_statement(party: str, month: str, email: str = ""):
+def email_client_statement(party: str, date_from: str = "", date_to: str = "",
+                           month: str = "", email: str = ""):
 
-    conn = get_conn()
+    try:
+        start, end = resolve_statement_period(date_from, date_to, month)
+    except ValueError as e:
+        return {"error": str(e)}
 
-    query = """
-        SELECT invoice_no, sale_date, client_charge, profit, paid_status
-        FROM sales
-        WHERE LOWER(party) = LOWER(%s)
-        AND sale_date IS NOT NULL
-        AND TO_CHAR(sale_date,'YYYY-MM') = %s
-        ORDER BY sale_date
-    """
+    df = fetch_statement_rows(party, start, end)
 
-    df = pd.read_sql(query, conn, params=(party, month))
-    conn.close()
-
-    if df.empty:
+    if df is None:
         return {"error": "No data"}
 
-    file_path = f"{party}_{month}.xlsx"
+    # Emailed statements can go to the client, so never include the profit column
+    df = df.drop(columns=["profit"])
+    df = df.rename(columns={
+        "invoice_no": "Invoice",
+        "sale_date": "Date",
+        "client_charge": "Amount",
+        "paid_status": "Status"
+    })
+
+    period_label = format_statement_period(start, end)
+    file_path = f"{party}_{start.isoformat()}_to_{end.isoformat()}.xlsx"
     df.to_excel(file_path, index=False)
 
     EMAIL = os.getenv("EMAIL_USER")
     PASSWORD = os.getenv("EMAIL_PASS")
 
     msg = EmailMessage()
-    msg["Subject"] = f"{party} Statement {month}"
+    msg["Subject"] = f"{party} Statement {period_label}"
     msg["From"] = EMAIL
 
-    recipients = ["ryan@moktransports.com"]  
+    recipients = ["ryan@moktransports.com"]
 
     if email:
         recipients.append(email)
 
     msg["To"] = ", ".join(recipients)
 
-    msg.set_content(f"Attached is the statement for {party} - {month}")
+    msg.set_content(f"Attached is the statement for {party} for the period {period_label}")
 
     with open(file_path, "rb") as f:
         msg.add_attachment(
@@ -1443,5 +1483,6 @@ if __name__=="__main__":
         host="0.0.0.0",
         port=port
     )
+
 
     
