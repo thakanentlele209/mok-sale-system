@@ -187,6 +187,40 @@
             padding: 12px;
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
         }
+
+        /* ===== Grouped sales records ===== */
+        .sales-toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+        .sales-toolbar input, .sales-toolbar select { margin: 0; }
+        .sales-toolbar label { font-size: 13px; color: #334155; display: flex; align-items: center; gap: 4px; }
+        .sales-toolbar label input { margin: 0; }
+        .btn-light { background: #e2e8f0; color: #0d2340; }
+        .btn-light:hover { background: #cbd5e1; }
+        .sales-summary { font-size: 13px; color: #475569; margin: 6px 0 14px; line-height: 1.6; }
+        .sales-summary .warn { color: #92400e; font-weight: bold; }
+        .group { border: 1px solid #dbe3ee; border-radius: 10px; margin-bottom: 10px; overflow: hidden; background: #fff; }
+        .group-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 16px; cursor: pointer; background: #f8fafc; user-select: none; }
+        .group-head:hover { background: #eef4ff; }
+        .group.open .group-head { background: #e3edfb; border-bottom: 1px solid #cbd5e1; }
+        .chev { color: #0d47a1; font-size: 12px; width: 12px; transition: transform .15s; }
+        .group.open .chev { transform: rotate(90deg); }
+        .group-name { flex: 1; min-width: 170px; font-weight: bold; font-size: 15px; color: #0d2340; }
+        .group-count { font-size: 12px; color: #64748b; font-weight: normal; margin-left: 8px; }
+        .gstat { text-align: right; min-width: 100px; }
+        .gstat small { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #64748b; }
+        .gstat b { font-size: 14px; color: #0d2340; }
+        .gstat.out b { color: #b91c1c; }
+        .gstat.paid b { color: #065f46; }
+        .group-body { display: none; overflow-x: auto; padding-bottom: 6px; }
+        .group.open .group-body { display: block; }
+        .group-body table { font-size: 13px; }
+        .group-body th, .group-body td { padding: 7px 9px; }
+        .group-body .edit-btn, .group-body .delete-btn { padding: 4px 10px; font-size: 12px; }
+        .badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: bold; }
+        .badge.paid { background: #d1fae5; color: #065f46; }
+        .badge.unpaid { background: #fde8e8; color: #b91c1c; }
+        .badge.dup { background: #fef3c7; color: #92400e; }
+        .tr-dup td { background: #fffbeb; }
+        .more-row { text-align: center; padding: 10px; }
     </style>
 </head>
 
@@ -402,31 +436,37 @@
     <div class="card">
         <h3>Sales Records</h3>
 
-        <input id="searchBox" placeholder="Search Party Name / Invoice">
-        <button onclick="searchSales()">Search</button>
-        <button onclick="loadSales()">Reset</button>
+        <div class="sales-toolbar">
+            <input id="searchBox" placeholder="Search Party Name / Invoice" onkeydown="if (event.key === 'Enter') searchSales()">
+            <button onclick="searchSales()">Search</button>
+            <button class="btn-light" onclick="resetSalesSearch()">Reset</button>
 
-        <table id="table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Party</th>
-                    <th>Supplier</th>
-                    <th>Order</th>
-                    <th>Invoice</th>
-                    <th>Waybill</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Total</th>
-                    <th>Profit</th>
-                    <th>Edit</th>
-                    <th>Delete</th>
-                </tr>
-            </thead>
+            <select id="salesGroupBy" onchange="renderSales()">
+                <option value="client">Group by Client</option>
+                <option value="month">Group by Month</option>
+                <option value="supplier">Group by Service</option>
+            </select>
 
-            <tbody></tbody>
+            <select id="salesStatusFilter" onchange="renderSales()">
+                <option value="">All statuses</option>
+                <option value="unpaid">Unpaid only</option>
+                <option value="paid">Paid only</option>
+                <option value="dups">Possible duplicates</option>
+            </select>
 
-        </table>
+            <select id="salesSupplierFilter" onchange="renderSales()">
+                <option value="">All services</option>
+            </select>
+
+            <label><input type="checkbox" id="salesCombine" onchange="renderSales()"> Combine Traclo entities</label>
+
+            <button class="btn-light" onclick="toggleAllGroups(true)">Expand all</button>
+            <button class="btn-light" onclick="toggleAllGroups(false)">Collapse all</button>
+        </div>
+
+        <div class="sales-summary" id="salesSummary"></div>
+
+        <div id="salesGroups"></div>
     </div>
 
     <div class="kpi-grid">
@@ -739,35 +779,203 @@
         }
 
 
+        // ================= GROUPED SALES RECORDS =================
+        let salesData = []
+        let salesFromSearch = false
+        let renderedGroups = []
+        const openGroups = new Set()
+        const groupShown = {}
+        const GROUP_PAGE = 15
+
+        function esc(v) {
+            return String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]))
+        }
+
+        function zar(n, d = 0) {
+            return "R " + Number(n || 0).toLocaleString("en-ZA", { minimumFractionDigits: d, maximumFractionDigits: d })
+        }
+
+        // Records that share client, invoice, order, amount and date are flagged as possible duplicates
+        function dupKeyOf(r) {
+            if (!r.invoice_no && !r.order_no) return null
+            return [r.party, r.invoice_no, r.order_no, r.total_invoice, r.sale_date]
+                .map(v => String(v ?? "").trim().toLowerCase()).join("|")
+        }
+
+        function groupInfo(r, mode, combine) {
+            if (mode === "month") {
+                const m = r.sale_date ? String(r.sale_date).substring(0, 7) : ""
+                if (!m) return { key: "~none", label: "No date" }
+                const label = new Date(m + "-01T00:00:00").toLocaleDateString("en-ZA", { month: "long", year: "numeric" })
+                return { key: m, label }
+            }
+            if (mode === "supplier") {
+                const sName = (r.supplier || "").trim() || "—"
+                return { key: sName.toLowerCase(), label: sName }
+            }
+            const p = (r.party || "").trim() || "—"
+            if (combine && /^traclo/i.test(p)) return { key: "traclo*", label: "TRACLO (all entities)" }
+            return { key: p.toLowerCase(), label: p }
+        }
+
+        function saleRowHtml(r, mode, isDup) {
+            const paid = r.paid_status === "Paid"
+            const dup = isDup(r)
+            return `
+<tr class="${dup ? "tr-dup" : ""}">
+<td>${esc(r.id)}</td>
+${mode !== "client" ? `<td>${esc(r.party)}</td>` : ""}
+${mode !== "supplier" ? `<td>${esc(r.supplier)}</td>` : ""}
+<td>${esc(r.invoice_no)}${dup ? ' <span class="badge dup" title="Same client, invoice, order, amount and date as another record">DUP</span>' : ""}</td>
+<td>${esc(r.order_no)}</td>
+<td>${formatWaybills(r.waybill)}</td>
+<td>${r.sale_date ? esc(r.sale_date) : '<span style="color:#b91c1c">No date</span>'}</td>
+<td><span class="badge ${paid ? "paid" : "unpaid"}">${esc(r.paid_status || "Unpaid")}</span></td>
+<td style="text-align:right;">${zar(r.client_charge, 2)}</td>
+<td style="text-align:right;">${zar(r.total_invoice, 2)}</td>
+<td style="text-align:right;">${zar(r.profit)}</td>
+<td><button class="edit-btn" onclick="editSale(${Number(r.id)})">Edit</button></td>
+<td><button class="delete-btn" onclick="deleteSale(${Number(r.id)})">Delete</button></td>
+</tr>`
+        }
+
+        function renderSales(autoOpen) {
+
+            const mode = document.getElementById("salesGroupBy").value
+            const statusF = document.getElementById("salesStatusFilter").value
+            const combine = document.getElementById("salesCombine").checked
+
+            // service filter options come from the data
+            const supSel = document.getElementById("salesSupplierFilter")
+            const supF = supSel.value
+            const suppliers = [...new Set(salesData.map(r => (r.supplier || "").trim()).filter(Boolean))].sort()
+            supSel.innerHTML = '<option value="">All services</option>' +
+                suppliers.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("")
+            supSel.value = suppliers.includes(supF) ? supF : ""
+
+            // duplicate detection runs on everything loaded, before filtering
+            const dupCount = {}
+            salesData.forEach(r => { const k = dupKeyOf(r); if (k) dupCount[k] = (dupCount[k] || 0) + 1 })
+            const isDup = r => { const k = dupKeyOf(r); return !!k && dupCount[k] > 1 }
+
+            const rows = salesData.filter(r => {
+                if (supSel.value && (r.supplier || "").trim() !== supSel.value) return false
+                const paid = r.paid_status === "Paid"
+                if (statusF === "unpaid" && paid) return false
+                if (statusF === "paid" && !paid) return false
+                if (statusF === "dups" && !isDup(r)) return false
+                return true
+            })
+
+            // build groups
+            const map = new Map()
+            rows.forEach(r => {
+                const { key, label } = groupInfo(r, mode, combine)
+                if (!map.has(key)) map.set(key, { key: mode + ":" + key, sortKey: key, label, rows: [] })
+                map.get(key).rows.push(r)
+            })
+
+            const groups = [...map.values()]
+            groups.forEach(g => {
+                g.rows.sort((a, b) => (b.sale_date || "").localeCompare(a.sale_date || "") || b.id - a.id)
+                g.total = g.rows.reduce((t, r) => t + Number(r.client_charge || 0), 0)
+                g.paid = g.rows.filter(r => r.paid_status === "Paid").reduce((t, r) => t + Number(r.client_charge || 0), 0)
+                g.out = g.total - g.paid
+                g.profit = g.rows.reduce((t, r) => t + Number(r.profit || 0), 0)
+                g.dups = g.rows.filter(isDup).length
+            })
+
+            if (mode === "month") {
+                groups.sort((a, b) => (a.sortKey === "~none") - (b.sortKey === "~none") || b.sortKey.localeCompare(a.sortKey))
+            } else {
+                groups.sort((a, b) => b.out - a.out || b.total - a.total)
+            }
+
+            if (autoOpen && groups.length <= 3) groups.forEach(g => openGroups.add(g.key))
+
+            renderedGroups = groups
+
+            // summary line
+            const totalOut = groups.reduce((t, g) => t + g.out, 0)
+            const dupRows = rows.filter(isDup).length
+            const noun = mode === "client" ? "clients" : mode === "month" ? "months" : "services"
+            document.getElementById("salesSummary").innerHTML =
+                `<b>${groups.length}</b> ${noun} &middot; <b>${rows.length}</b> of ${salesData.length} records &middot; ` +
+                `Outstanding <b style="color:#b91c1c;">${zar(totalOut)}</b> ` +
+                `<span style="color:#94a3b8;">(amounts exclude VAT, matching Payment Reminders and Statements)</span>` +
+                (dupRows ? `<br><span class="warn">&#9888; ${dupRows} possible duplicate records &mdash; choose &ldquo;Possible duplicates&rdquo; in the status filter to review them.</span>` : "")
+
+            const container = document.getElementById("salesGroups")
+
+            if (!groups.length) {
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">No records match.</div>'
+                return
+            }
+
+            const cols = ["ID"]
+            if (mode !== "client") cols.push("Party")
+            if (mode !== "supplier") cols.push("Service")
+            cols.push("Invoice", "Order", "Waybill", "Date", "Status", "Amount", "Total incl. VAT", "Profit", "Edit", "Delete")
+            const thead = "<thead><tr>" + cols.map(c => `<th>${c}</th>`).join("") + "</tr></thead>"
+
+            container.innerHTML = groups.map((g, i) => {
+                const open = openGroups.has(g.key)
+                const shown = Math.min(groupShown[g.key] || GROUP_PAGE, g.rows.length)
+                const body = g.rows.slice(0, shown).map(r => saleRowHtml(r, mode, isDup)).join("")
+                const more = shown < g.rows.length
+                    ? `<div class="more-row"><button class="btn-light" onclick="showMoreRows(${i})">Show all ${g.rows.length} records (${g.rows.length - shown} more)</button></div>`
+                    : ""
+                return `
+<div class="group ${open ? "open" : ""}" id="grp${i}">
+    <div class="group-head" onclick="toggleGroup(${i})">
+        <span class="chev">&#9654;</span>
+        <span class="group-name">${esc(g.label)}<span class="group-count">${g.rows.length} record${g.rows.length === 1 ? "" : "s"}${g.dups ? ` &middot; <span style="color:#92400e;">&#9888; ${g.dups} possible dup</span>` : ""}</span></span>
+        <span class="gstat"><small>Total</small><b>${zar(g.total)}</b></span>
+        <span class="gstat paid"><small>Paid</small><b>${zar(g.paid)}</b></span>
+        <span class="gstat out"><small>Outstanding</small><b>${zar(g.out)}</b></span>
+        <span class="gstat"><small>Profit</small><b>${zar(g.profit)}</b></span>
+    </div>
+    <div class="group-body">
+        <table>${thead}<tbody>${body}</tbody></table>
+        ${more}
+    </div>
+</div>`
+            }).join("")
+        }
+
+        function toggleGroup(i) {
+            const g = renderedGroups[i]
+            if (!g) return
+            if (openGroups.has(g.key)) openGroups.delete(g.key); else openGroups.add(g.key)
+            document.getElementById("grp" + i).classList.toggle("open", openGroups.has(g.key))
+        }
+
+        function toggleAllGroups(open) {
+            renderedGroups.forEach(g => open ? openGroups.add(g.key) : openGroups.delete(g.key))
+            renderSales()
+        }
+
+        function showMoreRows(i) {
+            const g = renderedGroups[i]
+            if (!g) return
+            groupShown[g.key] = g.rows.length
+            renderSales()
+        }
+
         async function loadSales() {
 
             const res = await fetch("/sales")
-            const data = await res.json()
+            salesData = await res.json()
+            salesFromSearch = false
+            renderSales()
 
-            const tbody = document.querySelector("#table tbody")
-            tbody.innerHTML = ""
+        }
 
-            data.forEach(row => {
-
-                tbody.innerHTML += `
-<tr>
-<td>${row.id}</td>
-<td>${row.party}</td>
-<td>${row.supplier}</td>
-<td>${row.order_no}</td>
-<td>${row.invoice_no}</td>
-<td>${formatWaybills(row.waybill)}</td>
-<td>${row.paid_status}</td>
-<td>${row.sale_date}</td>
-<td>${row.total_invoice}</td>
-<td>${row.profit}</td>
-<td><button class="edit-btn" onclick="editSale(${row.id})">Edit</button></td>
-<td><button class="delete-btn" onclick="deleteSale(${row.id})">Delete</button></td>
-</tr>
-`
-
-            })
-
+        function resetSalesSearch() {
+            document.getElementById("searchBox").value = ""
+            document.getElementById("salesStatusFilter").value = ""
+            document.getElementById("salesSupplierFilter").value = ""
+            loadSales()
         }
 
         document.getElementById("saleForm").addEventListener("submit", async (e) => {
@@ -1036,33 +1244,14 @@
 
         async function searchSales() {
 
-            const value = document.getElementById("searchBox").value
+            const value = document.getElementById("searchBox").value.trim()
 
-            const res = await fetch(`/search-sales?q=${value}`)
-            const data = await res.json()
+            if (!value) { loadSales(); return }
 
-            const tbody = document.querySelector("#table tbody")
-            tbody.innerHTML = ""
-
-            data.forEach(row => {
-
-                tbody.innerHTML += `
-        <tr>
-        <td>${row.id}</td>
-        <td>${row.party}</td>
-        <td>${row.supplier}</td>
-        <td>${row.order_no}</td>
-        <td>${row.invoice_no}</td>
-        <td>${formatWaybills(row.waybill)}</td>
-        <td>${row.paid_status}</td>
-        <td>${row.sale_date}</td>
-        <td>${row.total_invoice}</td>
-        <td>${row.profit}</td>
-        <td><button class="edit-btn" onclick="editSale(${row.id})">Edit</button></td>
-        <td><button class="delete-btn" onclick="deleteSale(${row.id})">Delete</button></td>
-        </tr>
-        `
-            })
+            const res = await fetch(`/search-sales?q=${encodeURIComponent(value)}`)
+            salesData = await res.json()
+            salesFromSearch = true
+            renderSales(true)
 
         }
 
